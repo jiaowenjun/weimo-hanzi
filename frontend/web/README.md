@@ -33,6 +33,15 @@ pnpm coverage 字体A --out <目录> --no-json --reference <han-assigned.json>
 
 口径：主覆盖率 = 13 个表意区块（统一表意 + 兼容表意）内已分配码位的覆盖比例；散居在部首/符号区块的 Han 码位（U+2E80/2F00 等）单独统计，不计入主覆盖率。
 
+### 覆盖热力图演示页（`/coverage.html`）
+
+独立多页入口（不依赖主页面），把上一步生成的 `.coverage.json` 在页面上载入，即可在码空间全景与区块详图上以「缺失标示」查看该字体的覆盖情况——暗罩/斜纹 = 缺失码位，保持原色 = 已覆盖，悬停可查看区块级覆盖率：
+
+```sh
+pnpm coverage <字体文件>     # 生成 reports/*.coverage.json
+pnpm dev                     # 打开 http://localhost:5173/coverage.html 载入报告
+```
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)

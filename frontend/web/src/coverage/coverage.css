@@ -1,0 +1,115 @@
+/* 字体覆盖热力图演示页专属样式；页面骨架/全景/详图/悬浮卡复用 App.css */
+
+/* —— 报告载入条 —— */
+.cov-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.cov-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cov-btn:hover {
+  border-color: #ff5a52;
+  color: #ffb4ae;
+}
+
+/* 已载入状态芯片：字体名 + 副标签 + 总覆盖率 + 清除 */
+.cov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 13px;
+  max-width: 100%;
+}
+.cov-chip b {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cov-chip i {
+  color: var(--text-faint);
+  font-style: normal;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cov-chip em {
+  font-style: normal;
+  font-weight: 700;
+  color: #ff9738;
+  white-space: nowrap;
+}
+.cov-chip button {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.cov-chip button:hover {
+  color: #ff5a52;
+  background: #ff5a521f;
+}
+
+.cov-err {
+  color: #ff8078;
+  font-size: 13px;
+}
+
+.cov-hint {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* 统计芯片中的「x / y」次要数字 */
+.stat .pct-of {
+  font-size: 0.72em;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+/* 图例中的缺失标示例块：暗底 + 45° 斜纹，与详图覆盖层一致 */
+.legend .sw-miss {
+  background:
+    repeating-linear-gradient(45deg, rgba(227, 231, 240, 0.28) 0 1px, transparent 1px 5px),
+    rgba(11, 14, 20, 0.82);
+  border: 1px solid var(--border);
+}
+
+/* —— 详图缺失标示覆盖层（CovDetail） —— */
+.cov-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .cov-bar {
+    gap: 8px;
+  }
+  .cov-chip i {
+    display: none;
+  }
+}

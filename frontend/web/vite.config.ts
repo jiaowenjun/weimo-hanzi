@@ -8,4 +8,13 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  build: {
+    rollupOptions: {
+      // 多页入口：主全景页 + 字体覆盖热力图演示页（dev server 天然服务 /coverage.html）
+      input: {
+        main: 'index.html',
+        coverage: 'coverage.html',
+      },
+    },
+  },
 })
