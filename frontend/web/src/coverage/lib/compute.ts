@@ -27,14 +27,14 @@ function scan(ranges: [number, number][], charset: Set<number>) {
   return { covered, coveredRanges, missingRanges }
 }
 
-function subtotal(list: { assigned: number; covered: number }[]): Subtotal {
+export function subtotal(list: { assigned: number; covered: number }[]): Subtotal {
   const assigned = list.reduce((n, b) => n + b.assigned, 0)
   const covered = list.reduce((n, b) => n + b.covered, 0)
   return { covered, assigned, coverage: assigned === 0 ? 0 : +(covered / assigned).toFixed(6) }
 }
 
 /** 缺失区间按平面分桶并合并相邻段（跨平面切开仅作稳健性兜底） */
-function bucketByPlane(missing: [number, number][]): Map<number, [number, number][]> {
+export function bucketByPlane(missing: [number, number][]): Map<number, [number, number][]> {
   const byPlane = new Map<number, [number, number][]>()
   for (const [lo, hi] of missing) {
     let s = lo
@@ -89,6 +89,7 @@ export function computeCoverage(charset: Set<number>, info: FontMemberInfo): Cov
       assigned: r.assigned,
       coverage: r.assigned === 0 ? 0 : +(r.covered / r.assigned).toFixed(6),
       missingCount: r.assigned - r.covered,
+      missingRanges: r.missingRanges,
     })
     allMissing.push(...r.missingRanges)
   }

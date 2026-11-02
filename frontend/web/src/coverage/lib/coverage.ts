@@ -12,12 +12,13 @@ interface ReportBlock {
   missingRanges: [number, number][]
 }
 
-/** 悬停卡片查表用的区块覆盖摘要 */
+/** 悬停卡片查表用的区块覆盖摘要（missingRanges 为数值闭区间，供并集求交） */
 export interface BlockCov {
   covered: number
   assigned: number
   coverage: number
   missingCount: number
+  missingRanges: [number, number][]
 }
 
 export interface Subtotal {
@@ -107,6 +108,7 @@ export function parseCoverageReport(json: unknown): ParseResult {
       assigned: b.assigned,
       coverage: b.coverage,
       missingCount: b.missingCount,
+      missingRanges: b.missingRanges,
     })
     for (const [lo, hi] of b.missingRanges) {
       // 理论上汉字区间不跨平面，仍按平面边界切开以保证稳健
@@ -138,10 +140,42 @@ export function parseCoverageReport(json: unknown): ParseResult {
   }
 }
 
-/** 悬停卡片 meta 行：覆盖率摘要（无数据时返回空数组） */
-export function covMeta(name: string, cov: CoverageModel | null): { k: string; v: string }[] {
+/** 字体栈条目（悬停卡片逐字体行） */
+export interface StackEntry {
+  label: string
+  blocksByName: Map<string, BlockCov>
+}
+
+/** 悬停卡片 meta 行：单字体时输出覆盖/缺失两行；
+ *  多字体（栈 ≥2）时输出逐字体覆盖率行 + 合计行 */
+export function covMeta(
+  name: string,
+  cov: CoverageModel | null,
+  stack: StackEntry[] = [],
+  unionCov: CoverageModel | null = null,
+): { k: string; v: string }[] {
+  if (stack.length >= 2) {
+    const lines = stack.flatMap((f) => {
+      const b = f.blocksByName.get(name)
+      if (!b) return []
+      return [
+        {
+          k: f.label,
+          v: `${(b.coverage * 100).toFixed(1)}% · 缺 ${b.missingCount.toLocaleString()}`,
+        },
+      ]
+    })
+    const u = unionCov?.blocksByName.get(name)
+    if (u) {
+      lines.push({
+        k: '合计',
+        v: `${u.covered.toLocaleString()} / ${u.assigned.toLocaleString()}（${(u.coverage * 100).toFixed(1)}%）`,
+      })
+    }
+    return lines
+  }
   const b = cov?.blocksByName.get(name)
-  if (!b || !cov) return []
+  if (!b) return []
   return [
     {
       k: '字体覆盖',

@@ -12,7 +12,7 @@ import {
 } from '../lib/model'
 import type { PlaneMeta, CuratedBlock, CategoryId, Rect } from '../lib/model'
 import type { TipData } from '../components/DetailCard'
-import { covMeta, type CoverageModel } from './lib/coverage'
+import { covMeta, type CoverageModel, type StackEntry } from './lib/coverage'
 import { hatchPattern } from './hatch'
 
 const COLS = 16
@@ -30,11 +30,15 @@ const BG_STYLE: Partial<Record<CategoryId, string>> = {
 interface Props {
   plane: PlaneMeta
   coverage: CoverageModel | null
+  /** 字体队列（≥2 时悬停卡片输出逐字体覆盖率行） */
+  stack?: StackEntry[]
+  /** 并集模型（悬停卡片「合计」行） */
+  unionCov?: CoverageModel | null
   showTip: (e: { clientX: number; clientY: number }, tip: Omit<TipData, 'x' | 'y'>) => void
   onTip: (tip: TipData | null) => void
 }
 
-export default function CovDetail({ plane, coverage, showTip, onTip }: Props) {
+export default function CovDetail({ plane, coverage, stack, unionCov, showTip, onTip }: Props) {
   const [hovered, setHovered] = useState<CuratedBlock | null>(null)
   const lastHit = useRef<string | null>(null)
   const overlayRef = useRef<HTMLCanvasElement | null>(null)
@@ -76,7 +80,7 @@ export default function CovDetail({ plane, coverage, showTip, onTip }: Props) {
       { k: '码位跨度', v: `${(b.end - b.start + 1).toLocaleString()} 个` },
       ...(b.chars ? [{ k: '已编码字符', v: b.chars }] : []),
       ...(b.version ? [{ k: '引入版本', v: b.version }] : []),
-      ...covMeta(b.name, coverage),
+      ...covMeta(b.name, coverage, stack, unionCov),
     ],
     desc: b.desc,
   })

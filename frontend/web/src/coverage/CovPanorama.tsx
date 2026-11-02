@@ -15,7 +15,7 @@ import {
 } from '../lib/model'
 import type { PlaneModel } from '../lib/model'
 import type { TipData } from '../components/DetailCard'
-import { covMeta, type CoverageModel } from './lib/coverage'
+import { covMeta, type CoverageModel, type StackEntry } from './lib/coverage'
 import { hatchPattern } from './hatch'
 
 const SIZE = 256
@@ -67,11 +67,15 @@ function drawPlane(canvas: HTMLCanvasElement, pm: PlaneModel, missing?: [number,
 
 interface Props {
   coverage: CoverageModel | null
+  /** 字体队列（≥2 时悬停卡片输出逐字体覆盖率行） */
+  stack?: StackEntry[]
+  /** 并集模型（悬停卡片「合计」行） */
+  unionCov?: CoverageModel | null
   onTip: (tip: TipData | null) => void
   showTip: (e: { clientX: number; clientY: number }, tip: Omit<TipData, 'x' | 'y'>) => void
 }
 
-export default function CovPanorama({ coverage, onTip, showTip }: Props) {
+export default function CovPanorama({ coverage, stack, unionCov, onTip, showTip }: Props) {
   const refs = useRef<(HTMLCanvasElement | null)[]>([])
 
   useEffect(() => {
@@ -101,7 +105,7 @@ export default function CovPanorama({ coverage, onTip, showTip }: Props) {
           { k: '区块范围', v: `${hex(han.start)} – ${hex(han.end)}` },
           ...(han.chars ? [{ k: '已编码字符', v: han.chars }] : []),
           ...(han.version ? [{ k: '引入版本', v: han.version }] : []),
-          ...covMeta(han.name, coverage),
+          ...covMeta(han.name, coverage, stack, unionCov),
         ],
         desc: han.desc,
       })

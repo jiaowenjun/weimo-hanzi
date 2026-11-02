@@ -102,15 +102,18 @@
   }
 }
 
-/* ttc 多成员切换器 */
-.cov-members {
+/* 字体队列：合计行 + 单字体行，点击切换视图，✕ 移除 */
+.cov-queue {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
-.cov-members button {
-  padding: 5px 12px;
+.cov-qrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--panel);
@@ -119,13 +122,40 @@
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
-.cov-members button:hover {
+.cov-qrow:hover {
   color: var(--text);
 }
-.cov-members button.active {
+.cov-qrow.active {
   border-color: #ff9738;
   color: #ffb977;
   background: #ff97381a;
+}
+.cov-qrow .q-label {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cov-qall .q-label {
+  font-weight: 600;
+}
+.cov-qrow .q-pct {
+  font-weight: 700;
+  color: #ff9738;
+  white-space: nowrap;
+}
+.cov-qrow .q-remove {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 6px;
+}
+.cov-qrow .q-remove:hover {
+  color: #ff5a52;
+  background: #ff5a521f;
 }
 
 .cov-hint {
