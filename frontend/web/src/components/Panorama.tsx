@@ -99,18 +99,16 @@ export default function Panorama({ onTip, showTip }: Props) {
   return (
     <div className="panorama">
       {PLANES.map((p, i) => (
-        <figure
-          key={p.id}
-          className={`plane-mini${p.id <= 3 ? ' has-han' : ''}`}
-          onMouseMove={(e) => handleMove(e, p.id)}
-          onMouseLeave={() => onTip(null)}
-        >
+        <figure key={p.id} className={`plane-mini${p.id <= 3 ? ' has-han' : ''}`}>
+          {/* 事件挂 canvas 而非 figure：figure 含底部说明文字，按其矩形折算码位会偏移 */}
           <canvas
             ref={(el) => {
               refs.current[i] = el
             }}
             width={SIZE}
             height={SIZE}
+            onMouseMove={(e) => handleMove(e, p.id)}
+            onMouseLeave={() => onTip(null)}
           />
           <figcaption>
             <b>平面 {p.id}</b>

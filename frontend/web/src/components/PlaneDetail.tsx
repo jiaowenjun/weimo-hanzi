@@ -1,6 +1,6 @@
 // 平面详图：16×16 网格（每格 = 0x100 码位）+ 侧边区块标签栏
 // 标题不叠在网格上，避免遮挡与色彩混淆；hover 双向联动高亮真实轮廓
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   BUCKET_META,
   PLANE_SIZE,
@@ -87,6 +87,7 @@ interface Props {
 
 export default function PlaneDetail({ plane, showTip, onTip }: Props) {
   const [hovered, setHovered] = useState<HanBlockInfo | null>(null)
+  const lastCellHit = useRef<string | null>(null)
 
   const base = plane.id * PLANE_SIZE
   const cells = useMemo(() => planeCells(plane.id), [plane.id])
@@ -114,12 +115,15 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
     showTip(e, tipOf(b))
   }
   const leave = () => {
+    lastCellHit.current = null
     setHovered(null)
     onTip(null)
   }
 
-  /** 悬停格：按鼠标在格内的位置折算具体码位，命中哪个区块就高亮哪个（格内可达码位级精度） */
-  const enterCell = (i: number) => (e: React.MouseEvent<HTMLDivElement>) => {
+  /** 悬停格：按鼠标在格内的横向位置折算具体码位，命中哪个区块就高亮哪个。
+   *  用 mousemove 而非 mouseenter：同一格被多个区块细分时（如西夏补充/西夏组件补
+   *  对半平分一格），格内移动也要重新命中；仅在命中区块变化时才更新高亮状态 */
+  const moveCell = (i: number) => (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const frac = Math.min(
       255,
@@ -127,7 +131,11 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
     )
     const b = hanBlockAt(base + i * 0x100 + frac)
     if (!b) return
-    enter(b)(e)
+    if (lastCellHit.current !== b.name) {
+      lastCellHit.current = b.name
+      setHovered(b)
+    }
+    showTip(e, tipOf(b))
   }
 
   return (
@@ -155,7 +163,7 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
                       : 'cell'
                   }
                   style={{ background: c.bg }}
-                  onMouseEnter={enterCell(i)}
+                  onMouseMove={moveCell(i)}
                   onMouseLeave={leave}
                 />
               )

@@ -416,5 +416,4 @@ export const STATS = {
   unifiedTotal: '101,997',
   hanTotal: '约 103,011',
   sealChars: '11,328',
-  hanBlocks: 13,
 } as const

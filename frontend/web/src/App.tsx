@@ -26,7 +26,7 @@ function App() {
         <p className="kicker">weimo-hanzi · 汉字与 Unicode 调研可视化</p>
         <h1>Unicode 汉字全景图</h1>
         <p className="sub">
-          汉字（Han）在 Unicode 码空间中的位置 —— 17 个平面、26 个汉字相关区块、约 10.3 万字
+          汉字（Han）在 Unicode 码空间中的位置 —— 17 个平面、35 个汉字相关区块、约 10.3 万字
         </p>
         <div className="stat-chips">
           <span className="stat">
@@ -74,7 +74,7 @@ function App() {
 
         <section>
           <h2>
-            ② 汉字区块详图 <span>每格 = 256 个码位（0x100），仅展开有汉字的 4 个平面</span>
+            ② 汉字区块详图 <span>每格 = 256 个码位（0x100），仅展开有汉字相关区块的 4 个平面</span>
           </h2>
           <p className="section-hint">
             标签为区块简短标题，<b>悬停查看详细信息</b>
