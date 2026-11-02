@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# 字体覆盖度检测的报告输出
+reports
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

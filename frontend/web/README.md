@@ -1,6 +1,37 @@
 # React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This template provides a minimal setup for React to work in Vite with HMR and some Oxlint rules.
+
+## 脚本工具
+
+### 汉字码空间数据（`scripts/gen-blocks.mjs`）
+
+从 Unicode 官方 [Blocks.txt](https://www.unicode.org/Public/18.0.0/ucd/Blocks.txt) 生成 `src/data/blocks.json`：
+
+```sh
+node scripts/gen-blocks.mjs <Blocks.txt路径> src/data/blocks.json
+```
+
+### 汉字已分配码位参考标准（`scripts/gen-han-assigned.mjs`）
+
+从 Unicode 官方 [Scripts.txt](https://www.unicode.org/Public/18.0.0/ucd/Scripts.txt) 生成 `scripts/data/han-assigned.json`（Script=Han 全部已分配码位，按官方区块分组）。覆盖度检测的分母以此为准，而非区块全长，避免把区块内部未分配的空隙误报为缺字：
+
+```sh
+node scripts/gen-han-assigned.mjs <Scripts.txt路径>
+```
+
+### 字体汉字覆盖度检测（`scripts/font-coverage.mjs`）
+
+检测字体文件（ttf/otf/ttc/woff/woff2）的 Unicode 汉字覆盖度，输出控制台报告与 JSON 报告（默认写入 `reports/`，含每区块覆盖/缺失码位区间，可直接驱动全景热力图）。支持 ttc 逐成员分析、多字体对比：
+
+```sh
+pnpm coverage <字体文件...>              # 基本用法
+pnpm coverage 字体A 字体B --strict       # 校验命中字形是否为空轮廓（注水检测）
+pnpm coverage 字体A --missing            # 打印每区块完整缺失码位区间
+pnpm coverage 字体A --out <目录> --no-json --reference <han-assigned.json>
+```
+
+口径：主覆盖率 = 13 个表意区块（统一表意 + 兼容表意）内已分配码位的覆盖比例；散居在部首/符号区块的 Han 码位（U+2E80/2F00 等）单独统计，不计入主覆盖率。
 
 Currently, two official plugins are available:
 

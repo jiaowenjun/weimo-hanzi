@@ -1,0 +1,202 @@
+{
+  "unicodeVersion": "18.0.0",
+  "source": "https://www.unicode.org/Public/18.0.0/ucd/Scripts.txt",
+  "script": "Han",
+  "totalAssigned": 103352,
+  "blocks": [
+    {
+      "name": "CJK Radicals Supplement",
+      "assigned": 115,
+      "ranges": [
+        [
+          "2E80",
+          "2E99"
+        ],
+        [
+          "2E9B",
+          "2EF3"
+        ]
+      ]
+    },
+    {
+      "name": "Kangxi Radicals",
+      "assigned": 214,
+      "ranges": [
+        [
+          "2F00",
+          "2FD5"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Symbols and Punctuation",
+      "assigned": 15,
+      "ranges": [
+        [
+          "3005",
+          "3005"
+        ],
+        [
+          "3007",
+          "3007"
+        ],
+        [
+          "3021",
+          "3029"
+        ],
+        [
+          "3038",
+          "303B"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension A",
+      "assigned": 6592,
+      "ranges": [
+        [
+          "3400",
+          "4DBF"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs",
+      "assigned": 20992,
+      "ranges": [
+        [
+          "4E00",
+          "9FFF"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Compatibility Ideographs",
+      "assigned": 472,
+      "ranges": [
+        [
+          "F900",
+          "FA6D"
+        ],
+        [
+          "FA70",
+          "FAD9"
+        ]
+      ]
+    },
+    {
+      "name": "Ideographic Symbols and Punctuation",
+      "assigned": 9,
+      "ranges": [
+        [
+          "16FE2",
+          "16FE3"
+        ],
+        [
+          "16FF0",
+          "16FF6"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension B",
+      "assigned": 42720,
+      "ranges": [
+        [
+          "20000",
+          "2A6DF"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension C",
+      "assigned": 4160,
+      "ranges": [
+        [
+          "2A700",
+          "2B73F"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension D",
+      "assigned": 223,
+      "ranges": [
+        [
+          "2B740",
+          "2B81E"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension E",
+      "assigned": 5774,
+      "ranges": [
+        [
+          "2B820",
+          "2CEAD"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension F",
+      "assigned": 7473,
+      "ranges": [
+        [
+          "2CEB0",
+          "2EBE0"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension I",
+      "assigned": 622,
+      "ranges": [
+        [
+          "2EBF0",
+          "2EE5D"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Compatibility Ideographs Supplement",
+      "assigned": 542,
+      "ranges": [
+        [
+          "2F800",
+          "2FA1D"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension G",
+      "assigned": 4939,
+      "ranges": [
+        [
+          "30000",
+          "3134A"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension H",
+      "assigned": 4192,
+      "ranges": [
+        [
+          "31350",
+          "323AF"
+        ]
+      ]
+    },
+    {
+      "name": "CJK Unified Ideographs Extension J",
+      "assigned": 4298,
+      "ranges": [
+        [
+          "323B0",
+          "33479"
+        ]
+      ]
+    }
+  ]
+}
