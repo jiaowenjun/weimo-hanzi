@@ -1,0 +1,57 @@
+:root {
+  --bg: #0b0e14;
+  --bg-soft: #10141d;
+  --panel: #131824;
+  --border: #232b3a;
+  --text: #c9d3e0;
+  --text-dim: #8391a5;
+  --text-faint: #5b6778;
+  --mono: 'SF Mono', 'Cascadia Code', ui-monospace, Menlo, Consolas, monospace;
+  --sans:
+    system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC',
+    'Microsoft YaHei', sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 70% -10%, #1a2233 0%, transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #ff5a5244;
+}
+
+a {
+  color: #7ab3ff;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: #1b2334;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #ffb3ae;
+}
