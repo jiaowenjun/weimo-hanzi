@@ -14,7 +14,7 @@ node scripts/gen-blocks.mjs <Blocks.txt路径> src/data/blocks.json
 
 ### 汉字已分配码位参考标准（`scripts/gen-han-assigned.mjs`）
 
-从 Unicode 官方 [Scripts.txt](https://www.unicode.org/Public/18.0.0/ucd/Scripts.txt) 生成 `scripts/data/han-assigned.json`（Script=Han 全部已分配码位，按官方区块分组）。覆盖度检测的分母以此为准，而非区块全长，避免把区块内部未分配的空隙误报为缺字：
+从 Unicode 官方 [Scripts.txt](https://www.unicode.org/Public/18.0.0/ucd/Scripts.txt) 生成 `src/data/han-assigned.json`（Script=Han 全部已分配码位，按官方区块分组）。覆盖度检测的分母以此为准，而非区块全长，避免把区块内部未分配的空隙误报为缺字；该文件同时是网页演示页浏览器端实时计算的参考标准：
 
 ```sh
 node scripts/gen-han-assigned.mjs <Scripts.txt路径>
@@ -35,11 +35,10 @@ pnpm coverage 字体A --out <目录> --no-json --reference <han-assigned.json>
 
 ### 覆盖热力图演示页（`/coverage.html`）
 
-独立多页入口（不依赖主页面），把上一步生成的 `.coverage.json` 在页面上载入，即可在码空间全景与区块详图上以「缺失标示」查看该字体的覆盖情况——暗罩/斜纹 = 缺失码位，保持原色 = 已覆盖，悬停可查看区块级覆盖率：
+独立多页入口（不依赖主页面）。**直接在页面上选择字体文件**（ttf/otf/ttc/woff/woff2），浏览器内用 fontkit 实时计算汉字覆盖度并渲染到码空间全景与区块详图——暗罩/斜纹 = 缺失码位，保持原色 = 已覆盖，悬停可查看区块级覆盖率；也可载入 CLI 生成的 `.coverage.json`（ttc 多成员可切换）。本地计算，不上传任何数据：
 
 ```sh
-pnpm coverage <字体文件>     # 生成 reports/*.coverage.json
-pnpm dev                     # 打开 http://localhost:5173/coverage.html 载入报告
+pnpm dev   # 打开 http://localhost:5173/coverage.html 选择字体文件即可
 ```
 
 Currently, two official plugins are available:

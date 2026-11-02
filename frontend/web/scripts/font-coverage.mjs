@@ -36,7 +36,7 @@ function usage() {
 const fonts = []
 const opts = {
   out: resolve(scriptDir, '../reports'),
-  reference: resolve(scriptDir, 'data/han-assigned.json'),
+  reference: resolve(scriptDir, '../src/data/han-assigned.json'),
   strict: false,
   missing: false,
   json: true,

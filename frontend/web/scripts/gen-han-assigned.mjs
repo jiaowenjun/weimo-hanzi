@@ -1,7 +1,8 @@
-// 从 Unicode 官方 Scripts.txt 生成汉字已分配码位参考标准（scripts/data/han-assigned.json）
+// 从 Unicode 官方 Scripts.txt 生成汉字已分配码位参考标准（src/data/han-assigned.json）
 // 用法: node scripts/gen-han-assigned.mjs <Scripts.txt路径> [输出json路径]
-// 参考标准供 font-coverage.mjs 使用：分母 = 区块内实际已分配码位（而非区块全长），
-// 缺失列表也按实际已分配码位计算，避免把区块内部空隙误报为缺字
+// 参考标准供 font-coverage.mjs（CLI）与网页演示页（浏览器端实时计算）共用：
+// 分母 = 区块内实际已分配码位（而非区块全长），缺失列表也按实际已分配码位计算，
+// 避免把区块内部空隙误报为缺字
 // 注意：Script=Han 除 13 个表意区块外还散居部首（U+2E80/2F00）、〇々等符号区，
 // 本文件如实按官方区块分组全量收录，展示口径由 font-coverage.mjs 决定
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -14,7 +15,7 @@ if (!inputPath) {
   console.error('usage: node gen-han-assigned.mjs <Scripts.txt> [out.json]')
   process.exit(1)
 }
-const outputPath = outputPathArg ?? resolve(scriptDir, 'data/han-assigned.json')
+const outputPath = outputPathArg ?? resolve(scriptDir, '../src/data/han-assigned.json')
 
 const lines = readFileSync(inputPath, 'utf8').split('\n')
 let version = ''

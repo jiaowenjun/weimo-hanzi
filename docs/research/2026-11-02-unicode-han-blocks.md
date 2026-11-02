@@ -3,7 +3,7 @@
 > 调研日期：2026-11-02
 > 版本基线：Unicode 18.0.0（2026 年 9 月发布，当前最新版）
 > 数据来源：Unicode 官方 Blocks.txt、官方发行说明、Wikipedia（已交叉核实）
-> 修订：2026-11-02 以官方 Scripts.txt（18.0.0）实测校正各区块已分配数；机器可读参考见 frontend/web/scripts/data/han-assigned.json（由 gen-han-assigned.mjs 生成）
+> 修订：2026-11-02 以官方 Scripts.txt（18.0.0）实测校正各区块已分配数；机器可读参考见 frontend/web/src/data/han-assigned.json（由 gen-han-assigned.mjs 生成）
 > 关联项目：weimo-hanzi
 
 ---
