@@ -5,6 +5,7 @@ import {
   BUCKET_META,
   PLANE_SIZE,
   hanBlocksSorted,
+  hanBlockAt,
   rawBlockAt,
   overlapLen,
   hex,
@@ -22,7 +23,7 @@ interface Rect {
 
 interface CellStyle {
   bg: string
-  key: string | null
+  han: boolean
 }
 
 function planeCells(plane: number): CellStyle[] {
@@ -48,15 +49,15 @@ function planeCells(plane: number): CellStyle[] {
         bg: `${c}${Math.round((0.38 + 0.5 * Math.min(1, frac)) * 255)
           .toString(16)
           .padStart(2, '0')}`,
-        key: best.name,
+        han: true,
       })
     } else {
       const raw = rawBlockAt(cs)
       const isPua = !!raw && raw.name.includes('Private Use')
       cells.push(
         raw
-          ? { bg: isPua ? '#232a38' : '#3d516640', key: null }
-          : { bg: 'transparent', key: null },
+          ? { bg: isPua ? '#232a38' : '#3d516640', han: false }
+          : { bg: 'transparent', han: false },
       )
     }
   }
@@ -85,7 +86,7 @@ interface Props {
 }
 
 export default function PlaneDetail({ plane, showTip, onTip }: Props) {
-  const [hovered, setHovered] = useState<string | null>(null)
+  const [hovered, setHovered] = useState<HanBlockInfo | null>(null)
 
   const base = plane.id * PLANE_SIZE
   const cells = useMemo(() => planeCells(plane.id), [plane.id])
@@ -109,12 +110,24 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
   })
 
   const enter = (b: HanBlockInfo) => (e: React.MouseEvent) => {
-    setHovered(b.name)
+    setHovered(b)
     showTip(e, tipOf(b))
   }
   const leave = () => {
     setHovered(null)
     onTip(null)
+  }
+
+  /** 悬停格：按鼠标在格内的位置折算具体码位，命中哪个区块就高亮哪个（格内可达码位级精度） */
+  const enterCell = (i: number) => (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const frac = Math.min(
+      255,
+      Math.max(0, Math.floor(((e.clientX - rect.left) / rect.width) * 256)),
+    )
+    const b = hanBlockAt(base + i * 0x100 + frac)
+    if (!b) return
+    enter(b)(e)
   }
 
   return (
@@ -128,27 +141,29 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
       <div className="plane-body">
         <div className="plane-grid-wrap">
           <div className="plane-grid">
-            {cells.map((c, i) => (
-              <div
-                key={i}
-                className={
-                  c.key
-                    ? `cell han${c.key === hovered ? ' hot' : ''}${hovered && c.key !== hovered ? ' dim' : ''}`
-                    : 'cell'
-                }
-                style={{ background: c.bg }}
-                onMouseEnter={(e) => {
-                  const b = hanBlocksSorted.find((x) => x.name === c.key)
-                  if (!b) return
-                  enter(b)(e)
-                }}
-                onMouseLeave={leave}
-              />
-            ))}
+            {cells.map((c, i) => {
+              // 与悬停区块有交集的格不压暗（提亮由精确轮廓承担），其余汉字格压暗聚焦
+              const cs = base + i * 0x100
+              const overlapsHovered =
+                !!hovered && cs <= hovered.end && cs + 0xff >= hovered.start
+              return (
+                <div
+                  key={i}
+                  className={
+                    c.han
+                      ? `cell han${hovered && !overlapsHovered ? ' dim' : ''}`
+                      : 'cell'
+                  }
+                  style={{ background: c.bg }}
+                  onMouseEnter={enterCell(i)}
+                  onMouseLeave={leave}
+                />
+              )
+            })}
           </div>
-          {/* hover 时的真实比例轮廓（跨行区块为多段矩形） */}
+          {/* hover 时的真实比例轮廓（跨行区块为多段矩形），兼作区块提亮层 */}
           {planeBlocks
-            .filter((b) => b.name === hovered)
+            .filter((b) => hovered && b.name === hovered.name)
             .flatMap((b) =>
               outlineRects(b, base).map((r, i) => (
                 <div
@@ -161,6 +176,7 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
                     height: `${r.h * 100}%`,
                     borderColor: BUCKET_META[b.category].color,
                     boxShadow: `0 0 14px ${BUCKET_META[b.category].color}66`,
+                    background: `${BUCKET_META[b.category].color}2e`,
                   }}
                 />
               )),
@@ -168,7 +184,7 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
         </div>
         <aside className="tray">
           {planeBlocks.map((b) => {
-            const hot = b.name === hovered
+            const hot = !!hovered && hovered.name === b.name
             const color = BUCKET_META[b.category].color
             return (
               <div
