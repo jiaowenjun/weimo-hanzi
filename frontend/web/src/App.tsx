@@ -2,12 +2,18 @@ import { useCallback, useState } from 'react'
 import DetailCard, { type TipData } from './components/DetailCard'
 import Panorama from './components/Panorama'
 import PlaneDetail from './components/PlaneDetail'
-import { BUCKET_META, PLANES, UNICODE_VERSION_LABEL } from './lib/unicode'
-import { STATS } from './data/hanBlocks'
+import {
+  CATEGORIES,
+  CATEGORY_ORDER,
+  PLANES,
+  STATS,
+  UNICODE_VERSION_LABEL,
+  getPlane,
+} from './lib/model'
 import './App.css'
 
-const LEGEND_ORDER = ['unified', 'compat', 'aux', 'seal', 'siniform', 'other', 'pua', 'none'] as const
-const DETAIL_PLANES = PLANES.filter((p) => p.id <= 3)
+// 详图展示哪些平面由数据派生：含汉字相关区块的平面（现为 0–3）
+const DETAIL_PLANES = PLANES.filter((p) => getPlane(p.id).curated.length > 0)
 
 function App() {
   const [tip, setTip] = useState<TipData | null>(null)
@@ -51,10 +57,10 @@ function App() {
           </span>
         </div>
         <ul className="legend">
-          {LEGEND_ORDER.map((k) => (
+          {CATEGORY_ORDER.map((k) => (
             <li key={k}>
-              <span className="sw" style={{ background: BUCKET_META[k].color }} />
-              {BUCKET_META[k].label}
+              <span className="sw" style={{ background: CATEGORIES[k].color }} />
+              {CATEGORIES[k].label}
             </li>
           ))}
         </ul>
@@ -67,7 +73,8 @@ function App() {
           </h2>
           <p className="section-hint">
             悬停任意位置可查看对应码位与区块。红色区域即汉字 —— 常用字集中在平面 0（BMP），
-            而超过一半的汉字位于平面 2、3（代理对区），平面 4–13 完全未分配。
+            超过一半的汉字位于平面 2、3（代理对区）；码空间共 17 个平面，
+            完全未分配的平面 4–13 已略去。
           </p>
           <Panorama onTip={hideTip} showTip={showTip} />
         </section>

@@ -1,40 +1,42 @@
-// 码空间全景：17 个平面，每平面一张 256×256 缩略图（1 像素 = 1 码位）
+// 码空间全景：每平面一张 256×256 缩略图（1 像素 = 1 码位），仅展示有区块的平面
+// 绘制与命中均走 model 的统一投影：rectsForRange(…, 256, 1) / cpAtNorm(…, 0x100)，
+// 与区块详图（PlaneDetail，cols=16/unit=0x100）共享同一套几何
 import { useEffect, useRef } from 'react'
-import { PLANES, PLANE_SIZE, BUCKET_META, bucketAt, rawBlockAt, hanBlockAt, hex } from '../lib/unicode'
+import {
+  PLANES,
+  PLANE_SIZE,
+  CATEGORIES,
+  getPlane,
+  segmentAt,
+  curatedAt,
+  unassignedCategory,
+  rectsForRange,
+  cpAtNorm,
+  hex,
+} from '../lib/model'
+import type { PlaneModel } from '../lib/model'
 import type { TipData } from './DetailCard'
 
 const SIZE = 256
 
-/** 桶 → [r, g, b]（缓存解析结果） */
-const rgbCache = new Map<string, [number, number, number]>()
-function rgbOf(color: string): [number, number, number] {
-  let c = rgbCache.get(color)
-  if (!c) {
-    c = [
-      Number.parseInt(color.slice(1, 3), 16),
-      Number.parseInt(color.slice(3, 5), 16),
-      Number.parseInt(color.slice(5, 7), 16),
-    ]
-    rgbCache.set(color, c)
-  }
-  return c
-}
+/** 码空间共 17 个平面；完全未分配的平面（4–13，无任何区块）不展示 */
+const VISIBLE_PLANES = PLANES.filter((p) => getPlane(p.id).segments.length > 0)
 
-function drawPlane(canvas: HTMLCanvasElement, plane: number) {
+function drawPlane(canvas: HTMLCanvasElement, pm: PlaneModel) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  const img = ctx.createImageData(SIZE, SIZE)
-  const buf = new Uint32Array(img.data.buffer)
-  const base = plane * PLANE_SIZE
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const cp = base + y * SIZE + x
-      const [r, g, b] = rgbOf(BUCKET_META[bucketAt(cp)].color)
-      // 小端 ABGR
-      buf[y * SIZE + x] = (255 << 24) | (b << 16) | (g << 8) | r
+  // 空隙底色（现行数据中 15/16 号平面被 PUA 区块整覆盖，此色不会露出）
+  ctx.fillStyle = CATEGORIES[unassignedCategory(pm.meta.id)].color
+  ctx.fillRect(0, 0, SIZE, SIZE)
+  const base = pm.meta.id * PLANE_SIZE
+  for (const seg of pm.segments) {
+    ctx.fillStyle = CATEGORIES[seg.category].color
+    // rectsForRange 接收平面内相对码位
+    for (const r of rectsForRange(seg.start - base, seg.end - base, SIZE, 1)) {
+      // 区块边界均为整数码位 → 像素坐标恰为整数，与逐像素绘制完全一致
+      ctx.fillRect(r.x * SIZE, r.y * SIZE, r.w * SIZE, r.h * SIZE)
     }
   }
-  ctx.putImageData(img, 0, 0)
 }
 
 interface Props {
@@ -46,24 +48,27 @@ export default function Panorama({ onTip, showTip }: Props) {
   const refs = useRef<(HTMLCanvasElement | null)[]>([])
 
   useEffect(() => {
-    for (let p = 0; p < PLANES.length; p++) {
-      const cv = refs.current[p]
-      if (cv) drawPlane(cv, PLANES[p].id)
-    }
+    VISIBLE_PLANES.forEach((p, i) => {
+      const cv = refs.current[i]
+      if (cv) drawPlane(cv, getPlane(p.id))
+    })
   }, [])
 
   const handleMove = (e: React.MouseEvent<Element>, plane: number) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = Math.min(255, Math.max(0, Math.floor(((e.clientX - rect.left) / rect.width) * SIZE)))
-    const y = Math.min(255, Math.max(0, Math.floor(((e.clientY - rect.top) / rect.height) * SIZE)))
-    const cp = plane * PLANE_SIZE + y * SIZE + x
-    const han = hanBlockAt(cp)
+    const cp = cpAtNorm(
+      plane * PLANE_SIZE,
+      (e.clientX - rect.left) / rect.width,
+      (e.clientY - rect.top) / rect.height,
+      SIZE,
+    )
+    const han = curatedAt(cp)
     if (han) {
       showTip(e, {
         title: han.zh,
         subtitle: han.name,
-        color: BUCKET_META[han.category].color,
-        badge: BUCKET_META[han.category].label,
+        color: CATEGORIES[han.category].color,
+        badge: CATEGORIES[han.category].label,
         meta: [
           { k: '码位', v: hex(cp) },
           { k: '区块范围', v: `${hex(han.start)} – ${hex(han.end)}` },
@@ -74,13 +79,12 @@ export default function Panorama({ onTip, showTip }: Props) {
       })
       return
     }
-    const raw = rawBlockAt(cp)
+    const raw = segmentAt(cp)
     if (raw) {
-      const bucket = bucketAt(cp)
       showTip(e, {
         title: raw.name,
-        color: BUCKET_META[bucket].color,
-        badge: BUCKET_META[bucket].label,
+        color: CATEGORIES[raw.category].color,
+        badge: CATEGORIES[raw.category].label,
         meta: [
           { k: '码位', v: hex(cp) },
           { k: '区块范围', v: `${hex(raw.start)} – ${hex(raw.end)}` },
@@ -88,18 +92,19 @@ export default function Panorama({ onTip, showTip }: Props) {
       })
       return
     }
+    const cat = unassignedCategory(plane)
     showTip(e, {
-      title: cp >= 0xf0000 ? '私人使用区（未登记内容）' : '未分配',
-      color: BUCKET_META.none.color,
-      badge: BUCKET_META.none.label,
+      title: cat === 'pua' ? '私人使用区（未登记内容）' : '未分配',
+      color: CATEGORIES[cat].color,
+      badge: CATEGORIES[cat].label,
       meta: [{ k: '码位', v: hex(cp) }],
     })
   }
 
   return (
     <div className="panorama">
-      {PLANES.map((p, i) => (
-        <figure key={p.id} className={`plane-mini${p.id <= 3 ? ' has-han' : ''}`}>
+      {VISIBLE_PLANES.map((p, i) => (
+        <figure key={p.id} className={`plane-mini${getPlane(p.id).curated.length > 0 ? ' has-han' : ''}`}>
           {/* 事件挂 canvas 而非 figure：figure 含底部说明文字，按其矩形折算码位会偏移 */}
           <canvas
             ref={(el) => {

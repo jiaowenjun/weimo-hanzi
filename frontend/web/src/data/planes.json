@@ -1,0 +1,41 @@
+{
+  "unicodeVersion": "18.0.0",
+  "planeSize": 65536,
+  "planeCount": 17,
+  "legend": [
+    { "id": "unified", "label": "统一表意文字（汉字本体）", "color": "#ff5a52" },
+    { "id": "compat", "label": "兼容表意文字", "color": "#ff9738" },
+    { "id": "aux", "label": "汉字辅助（部首/笔画/注音/符号）", "color": "#ffd23f" },
+    { "id": "seal", "label": "小篆 Seal（18.0 新增）", "color": "#b06bff" },
+    { "id": "siniform", "label": "汉字系文字（西夏/契丹/女真/女书）", "color": "#2dd4bf" },
+    { "id": "other", "label": "其他文字区块", "color": "#3d5166" },
+    { "id": "pua", "label": "私人使用区", "color": "#232a38" },
+    { "id": "none", "label": "未分配", "color": "#0e1219" }
+  ],
+  "stats": {
+    "totalChars": "172,808",
+    "totalScripts": "175",
+    "unifiedTotal": "101,997",
+    "hanTotal": "约 103,011",
+    "sealChars": "11,328"
+  },
+  "planes": [
+    { "id": 0, "abbr": "BMP", "zh": "基本多文种平面", "note": "汉字基本区、扩展 A、兼容区所在" },
+    { "id": 1, "abbr": "SMP", "zh": "增补多文种平面", "note": "西夏、契丹、女真、女书等汉字系文字" },
+    { "id": 2, "abbr": "SIP", "zh": "表意文字增补平面", "note": "扩展 B/C/D/E/F/I 与兼容补充" },
+    { "id": 3, "abbr": "TIP", "zh": "第三表意文字平面", "note": "扩展 G/H/J 与小篆 Seal" },
+    { "id": 4, "abbr": "P4", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 5, "abbr": "P5", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 6, "abbr": "P6", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 7, "abbr": "P7", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 8, "abbr": "P8", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 9, "abbr": "P9", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 10, "abbr": "P10", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 11, "abbr": "P11", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 12, "abbr": "P12", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 13, "abbr": "P13", "zh": "未分配", "note": "尚无任何字符" },
+    { "id": 14, "abbr": "SSP", "zh": "增补特殊用途平面", "note": "标签、变体选择符" },
+    { "id": 15, "abbr": "PUA-A", "zh": "私人使用区 A" },
+    { "id": 16, "abbr": "PUA-B", "zh": "私人使用区 B" }
+  ]
+}

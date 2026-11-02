@@ -233,24 +233,20 @@ section h2 span {
 }
 
 .plane-grid {
-  position: relative; /* 作为精确填充层（.block-fill）的定位与裁剪容器 */
-  display: grid;
-  grid-template-columns: repeat(16, 1fr);
-  grid-template-rows: repeat(16, 1fr);
+  position: relative; /* 作为背景纹理层与精确填充层的定位与裁剪容器 */
   aspect-ratio: 1;
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   background: #0e1219;
+  cursor: crosshair;
 }
 
-.cell {
-  position: relative;
-}
-
-.cell.han {
-  cursor: pointer;
+/* 背景纹理层：非汉字区块按真实码位范围铺 muted 色（other 半透明、PUA 实色） */
+.block-bg {
+  position: absolute;
+  pointer-events: none;
 }
 
 /* 汉字区块精确填充层：按真实码位范围绘制（与悬停轮廓同一几何），

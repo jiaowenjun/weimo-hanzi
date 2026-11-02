@@ -1,71 +1,21 @@
 // 平面详图：16×16 网格（每格 = 0x100 码位）+ 侧边区块标签栏
-// 标题不叠在网格上，避免遮挡与色彩混淆；hover 双向联动高亮真实轮廓
-import { useMemo, useRef, useState } from 'react'
-import {
-  BUCKET_META,
-  PLANE_SIZE,
-  hanBlocksSorted,
-  hanBlockAt,
-  rawBlockAt,
-  hex,
-} from '../lib/unicode'
-import type { PlaneMeta } from '../lib/unicode'
-import type { HanBlockInfo } from '../data/hanBlocks'
+// 与全景缩略图共享同一 PlaneModel，仅尺度不同（cols=16, unit=0x100）：
+// 背景纹理按区块真实范围绘制（不再按格采样，半格区块不再误染整格），
+// 悬停命中在网格级按码位折算，格内移动即可在多个区块间重新命中
+import { useRef, useState } from 'react'
+import { CATEGORIES, PLANE_SIZE, getPlane, curatedAt, rectsForRange, cpAtNorm, hex } from '../lib/model'
+import type { PlaneMeta, CuratedBlock, CategoryId } from '../lib/model'
 import type { TipData } from './DetailCard'
 
-interface Rect {
-  x: number
-  y: number
-  w: number
-  h: number
-}
+const COLS = 16
+const UNIT = 0x100
+const SPAN = COLS * UNIT // 每行码位数 0x1000
 
-interface CellStyle {
-  bg: string
-  han: boolean
-}
-
-/** 格子层只作背景纹理：浅色 = 其他文字区块、深色 = PUA、透明 = 未分配。
- *  汉字区块的实际覆盖不再按格涂满，由 fill 层（outlineRects）按真实码位范围精确绘制，
- *  否则不满一格的区块（如部首补充 128 码位占半格）会被误读成一整格 256 个码位 */
-function planeCells(plane: number): CellStyle[] {
-  const base = plane * PLANE_SIZE
-  const cells: CellStyle[] = []
-  for (let i = 0; i < 256; i++) {
-    const cs = base + i * 0x100
-    const ce = cs + 0xff
-    let han = false
-    for (const b of hanBlocksSorted) {
-      if (b.start > ce) break
-      if (b.end >= cs) {
-        han = true
-        break
-      }
-    }
-    const raw = rawBlockAt(cs)
-    const isPua = !!raw && raw.name.includes('Private Use')
-    cells.push(
-      raw
-        ? { bg: isPua ? '#232a38' : '#3d516640', han }
-        : { bg: 'transparent', han },
-    )
-  }
-  return cells
-}
-
-/** 区块真实覆盖范围 → 1~3 段比例矩形（跨行区块呈 C/L 形），全部输出 0~1 比例 */
-function outlineRects(b: HanBlockInfo, base: number): Rect[] {
-  const cs = (b.start - base) / 0x100 // 起始格（小数，0..255）
-  const ce = (b.end - base + 1) / 0x100 // 结束格（开区间，按码位数折算）
-  const r0 = Math.floor(cs / 16)
-  const r1 = Math.ceil(ce / 16)
-  const x1 = (cs - r0 * 16) / 16 // 首行内起点（0..1）
-  const x2 = Math.min(1, (ce - (r1 - 1) * 16) / 16) // 末行内终点（0..1）
-  if (r0 === r1 - 1) return [{ x: x1, y: r0 / 16, w: x2 - x1, h: 1 / 16 }]
-  const rects = [{ x: x1, y: r0 / 16, w: 1 - x1, h: 1 / 16 }]
-  if (r1 - r0 > 2) rects.push({ x: 0, y: (r0 + 1) / 16, w: 1, h: (r1 - r0 - 2) / 16 })
-  rects.push({ x: 0, y: (r1 - 1) / 16, w: x2, h: 1 / 16 })
-  return rects
+/** 背景纹理只画非汉字区块：other 半透明、PUA 实色；空隙留网格底色。
+ *  汉字区块由上层 fill 层全彩精确绘制 */
+const BG_STYLE: Partial<Record<CategoryId, string>> = {
+  other: `${CATEGORIES.other.color}40`,
+  pua: CATEGORIES.pua.color,
 }
 
 interface Props {
@@ -75,21 +25,17 @@ interface Props {
 }
 
 export default function PlaneDetail({ plane, showTip, onTip }: Props) {
-  const [hovered, setHovered] = useState<HanBlockInfo | null>(null)
-  const lastCellHit = useRef<string | null>(null)
+  const [hovered, setHovered] = useState<CuratedBlock | null>(null)
+  const lastHit = useRef<string | null>(null)
 
+  const pm = getPlane(plane.id)
   const base = plane.id * PLANE_SIZE
-  const cells = useMemo(() => planeCells(plane.id), [plane.id])
-  const planeBlocks = useMemo(
-    () => hanBlocksSorted.filter((b) => b.start >= base && b.end < base + PLANE_SIZE),
-    [base],
-  )
 
-  const tipOf = (b: HanBlockInfo): Omit<TipData, 'x' | 'y'> => ({
+  const tipOf = (b: CuratedBlock): Omit<TipData, 'x' | 'y'> => ({
     title: b.zh,
     subtitle: b.name,
-    color: BUCKET_META[b.category].color,
-    badge: BUCKET_META[b.category].label,
+    color: CATEGORIES[b.category].color,
+    badge: CATEGORIES[b.category].label,
     meta: [
       { k: '区块范围', v: `${hex(b.start)} – ${hex(b.end)}` },
       { k: '码位跨度', v: `${(b.end - b.start + 1).toLocaleString()} 个` },
@@ -99,37 +45,39 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
     desc: b.desc,
   })
 
-  const enter = (b: HanBlockInfo) => (e: React.MouseEvent) => {
+  const enter = (b: CuratedBlock) => (e: React.MouseEvent) => {
     setHovered(b)
     showTip(e, tipOf(b))
   }
   const leave = () => {
-    lastCellHit.current = null
+    lastHit.current = null
     setHovered(null)
     onTip(null)
   }
 
-  /** 悬停格：按鼠标在格内的横向位置折算具体码位，命中哪个区块就高亮哪个。
-   *  用 mousemove 而非 mouseenter：同一格被多个区块细分时（如西夏补充/西夏组件补
-   *  对半平分一格），格内移动也要重新命中；仅在命中区块变化时才更新高亮状态 */
-  const moveCell = (i: number) => (e: React.MouseEvent<HTMLDivElement>) => {
+  /** 网格级悬停：按鼠标位置折算具体码位，命中哪个汉字区块就高亮哪个。
+   *  同一格被多个区块细分时（如西夏补充/西夏组件补对半平分一格），
+   *  格内移动也会重新命中；仅在命中区块变化时才更新高亮状态 */
+  const moveGrid = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const frac = Math.min(
-      255,
-      Math.max(0, Math.floor(((e.clientX - rect.left) / rect.width) * 256)),
+    const cp = cpAtNorm(
+      base,
+      (e.clientX - rect.left) / rect.width,
+      (e.clientY - rect.top) / rect.height,
+      SPAN,
     )
-    const b = hanBlockAt(base + i * 0x100 + frac)
+    const b = curatedAt(cp)
     if (!b) {
-      // 移入格内的非汉字部分（如部首补充左半的补充标点）：清除残留高亮与提示
-      if (lastCellHit.current) {
-        lastCellHit.current = null
+      // 移入汉字区块之间的空隙（如扩展 A 与基本区之间）：清除残留高亮与提示
+      if (lastHit.current) {
+        lastHit.current = null
         setHovered(null)
         onTip(null)
       }
       return
     }
-    if (lastCellHit.current !== b.name) {
-      lastCellHit.current = b.name
+    if (lastHit.current !== b.name) {
+      lastHit.current = b.name
       setHovered(b)
     }
     showTip(e, tipOf(b))
@@ -145,20 +93,29 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
       </div>
       <div className="plane-body">
         <div className="plane-grid-wrap">
-          <div className="plane-grid">
-            {cells.map((c, i) => (
-              <div
-                key={i}
-                className={c.han ? 'cell han' : 'cell'}
-                style={{ background: c.bg }}
-                onMouseMove={moveCell(i)}
-                onMouseLeave={leave}
-              />
-            ))}
-            {/* 汉字区块精确填充层：与悬停轮廓共用 outlineRects 几何，按真实码位范围着色，
+          <div className="plane-grid" onMouseMove={moveGrid} onMouseLeave={leave}>
+            {/* 背景纹理层：非汉字区块按真实码位范围铺 muted 色 */}
+            {pm.segments.flatMap((s) => {
+              const bg = BG_STYLE[s.category]
+              if (!bg) return []
+              return rectsForRange(s.start - base, s.end - base, COLS, UNIT).map((r, i) => (
+                <div
+                  key={`bg-${s.name}-${i}`}
+                  className="block-bg"
+                  style={{
+                    left: `${r.x * 100}%`,
+                    top: `${r.y * 100}%`,
+                    width: `${r.w * 100}%`,
+                    height: `${r.h * 100}%`,
+                    background: bg,
+                  }}
+                />
+              ))
+            })}
+            {/* 汉字区块精确填充层：与悬停轮廓共用 rectsForRange 几何，
                 绝对定位于网格内，出界与圆角由网格自身裁剪 */}
-            {planeBlocks.flatMap((b) =>
-              outlineRects(b, base).map((r, i) => (
+            {pm.curated.flatMap((b) =>
+              rectsForRange(b.start - base, b.end - base, COLS, UNIT).map((r, i) => (
                 <div
                   key={`fill-${b.name}-${i}`}
                   className={`block-fill${hovered && hovered.name !== b.name ? ' dim' : ''}`}
@@ -167,20 +124,19 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
                     top: `${r.y * 100}%`,
                     width: `${r.w * 100}%`,
                     height: `${r.h * 100}%`,
-                    background: BUCKET_META[b.category].color,
+                    background: CATEGORIES[b.category].color,
                     // 极窄区块（< 1% 网格宽 ≈ 41 码位）加辉光补偿可发现性，如描述符、契丹小字
-                    boxShadow:
-                      r.w < 0.01 ? `0 0 5px ${BUCKET_META[b.category].color}aa` : undefined,
+                    boxShadow: r.w < 0.01 ? `0 0 5px ${CATEGORIES[b.category].color}aa` : undefined,
                   }}
                 />
               )),
             )}
           </div>
           {/* hover 时的真实比例轮廓（跨行区块为多段矩形），兼作区块提亮层 */}
-          {planeBlocks
+          {pm.curated
             .filter((b) => hovered && b.name === hovered.name)
             .flatMap((b) =>
-              outlineRects(b, base).map((r, i) => (
+              rectsForRange(b.start - base, b.end - base, COLS, UNIT).map((r, i) => (
                 <div
                   key={`${b.name}-${i}`}
                   className="block-outline"
@@ -189,27 +145,23 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
                     top: `${r.y * 100}%`,
                     width: `${r.w * 100}%`,
                     height: `${r.h * 100}%`,
-                    borderColor: BUCKET_META[b.category].color,
-                    boxShadow: `0 0 14px ${BUCKET_META[b.category].color}66`,
-                    background: `${BUCKET_META[b.category].color}2e`,
+                    borderColor: CATEGORIES[b.category].color,
+                    boxShadow: `0 0 14px ${CATEGORIES[b.category].color}66`,
+                    background: `${CATEGORIES[b.category].color}2e`,
                   }}
                 />
               )),
             )}
         </div>
         <aside className="tray">
-          {planeBlocks.map((b) => {
+          {pm.curated.map((b) => {
             const hot = !!hovered && hovered.name === b.name
-            const color = BUCKET_META[b.category].color
+            const color = CATEGORIES[b.category].color
             return (
               <div
                 key={b.name}
                 className={`tray-item${hot ? ' hot' : ''}`}
-                style={
-                  hot
-                    ? { borderColor: color, background: `${color}1f` }
-                    : undefined
-                }
+                style={hot ? { borderColor: color, background: `${color}1f` } : undefined}
                 onMouseEnter={enter(b)}
                 onMouseLeave={leave}
               >
