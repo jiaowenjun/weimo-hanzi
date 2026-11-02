@@ -63,18 +63,18 @@ function planeCells(plane: number): CellStyle[] {
   return cells
 }
 
-/** 区块真实覆盖范围 → 1~3 段比例矩形（跨行区块呈 C/L 形） */
+/** 区块真实覆盖范围 → 1~3 段比例矩形（跨行区块呈 C/L 形），全部输出 0~1 比例 */
 function outlineRects(b: HanBlockInfo, base: number): Rect[] {
-  const cs = (b.start - base) / 0x100 // 起始格（小数）
-  const ce = (b.end - base) / 0x100 + 1 // 结束格（开区间）
+  const cs = (b.start - base) / 0x100 // 起始格（小数，0..255）
+  const ce = (b.end - base + 1) / 0x100 // 结束格（开区间，按码位数折算）
   const r0 = Math.floor(cs / 16)
   const r1 = Math.ceil(ce / 16)
-  const x1 = cs - r0 * 16
-  const x2 = Math.min(1, ce - (r1 - 1) * 16)
-  if (r0 === r1 - 1) return [{ x: x1 / 16, y: r0 / 16, w: (x2 - x1) / 16, h: 1 / 16 }]
-  const rects = [{ x: x1 / 16, y: r0 / 16, w: 1 - x1 / 16, h: 1 / 16 }]
+  const x1 = (cs - r0 * 16) / 16 // 首行内起点（0..1）
+  const x2 = Math.min(1, (ce - (r1 - 1) * 16) / 16) // 末行内终点（0..1）
+  if (r0 === r1 - 1) return [{ x: x1, y: r0 / 16, w: x2 - x1, h: 1 / 16 }]
+  const rects = [{ x: x1, y: r0 / 16, w: 1 - x1, h: 1 / 16 }]
   if (r1 - r0 > 2) rects.push({ x: 0, y: (r0 + 1) / 16, w: 1, h: (r1 - r0 - 2) / 16 })
-  rects.push({ x: 0, y: (r1 - 1) / 16, w: x2 / 16, h: 1 / 16 })
+  rects.push({ x: 0, y: (r1 - 1) / 16, w: x2, h: 1 / 16 })
   return rects
 }
 
