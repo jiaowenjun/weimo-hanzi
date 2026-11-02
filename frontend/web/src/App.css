@@ -233,6 +233,7 @@ section h2 span {
 }
 
 .plane-grid {
+  position: relative; /* 作为精确填充层（.block-fill）的定位与裁剪容器 */
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   grid-template-rows: repeat(16, 1fr);
@@ -246,16 +247,24 @@ section h2 span {
 
 .cell {
   position: relative;
-  transition: filter 0.12s ease;
 }
 
 .cell.han {
   cursor: pointer;
 }
 
-/* 悬停任一区块时，无交集的汉字格压暗聚焦；提亮由精确轮廓层承担 */
-.plane-detail.focused .cell.han.dim {
-  filter: brightness(0.45) saturate(0.6);
+/* 汉字区块精确填充层：按真实码位范围绘制（与悬停轮廓同一几何），
+   不满一格的区块不再涂满整格；悬停其他区块时整体压暗聚焦 */
+.block-fill {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.72;
+  transition: opacity 0.12s ease;
+}
+
+.block-fill.dim {
+  opacity: 0.28;
 }
 
 /* 侧边区块标签栏 */

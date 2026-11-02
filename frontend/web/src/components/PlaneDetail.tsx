@@ -7,7 +7,6 @@ import {
   hanBlocksSorted,
   hanBlockAt,
   rawBlockAt,
-  overlapLen,
   hex,
 } from '../lib/unicode'
 import type { PlaneMeta } from '../lib/unicode'
@@ -26,40 +25,30 @@ interface CellStyle {
   han: boolean
 }
 
+/** 格子层只作背景纹理：浅色 = 其他文字区块、深色 = PUA、透明 = 未分配。
+ *  汉字区块的实际覆盖不再按格涂满，由 fill 层（outlineRects）按真实码位范围精确绘制，
+ *  否则不满一格的区块（如部首补充 128 码位占半格）会被误读成一整格 256 个码位 */
 function planeCells(plane: number): CellStyle[] {
   const base = plane * PLANE_SIZE
   const cells: CellStyle[] = []
   for (let i = 0; i < 256; i++) {
     const cs = base + i * 0x100
     const ce = cs + 0xff
-    let best: HanBlockInfo | null = null
-    let bestLen = 0
+    let han = false
     for (const b of hanBlocksSorted) {
       if (b.start > ce) break
-      const len = overlapLen(b.start, b.end, cs, ce)
-      if (len > bestLen) {
-        best = b
-        bestLen = len
+      if (b.end >= cs) {
+        han = true
+        break
       }
     }
-    if (best) {
-      const frac = bestLen / 0x100
-      const c = BUCKET_META[best.category].color
-      cells.push({
-        bg: `${c}${Math.round((0.38 + 0.5 * Math.min(1, frac)) * 255)
-          .toString(16)
-          .padStart(2, '0')}`,
-        han: true,
-      })
-    } else {
-      const raw = rawBlockAt(cs)
-      const isPua = !!raw && raw.name.includes('Private Use')
-      cells.push(
-        raw
-          ? { bg: isPua ? '#232a38' : '#3d516640', han: false }
-          : { bg: 'transparent', han: false },
-      )
-    }
+    const raw = rawBlockAt(cs)
+    const isPua = !!raw && raw.name.includes('Private Use')
+    cells.push(
+      raw
+        ? { bg: isPua ? '#232a38' : '#3d516640', han }
+        : { bg: 'transparent', han },
+    )
   }
   return cells
 }
@@ -130,7 +119,15 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
       Math.max(0, Math.floor(((e.clientX - rect.left) / rect.width) * 256)),
     )
     const b = hanBlockAt(base + i * 0x100 + frac)
-    if (!b) return
+    if (!b) {
+      // 移入格内的非汉字部分（如部首补充左半的补充标点）：清除残留高亮与提示
+      if (lastCellHit.current) {
+        lastCellHit.current = null
+        setHovered(null)
+        onTip(null)
+      }
+      return
+    }
     if (lastCellHit.current !== b.name) {
       lastCellHit.current = b.name
       setHovered(b)
@@ -139,7 +136,7 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
   }
 
   return (
-    <div className={`plane-detail${hovered ? ' focused' : ''}`}>
+    <div className="plane-detail">
       <div className="plane-head">
         <span className="plane-id">平面 {plane.id}</span>
         <b>{plane.abbr}</b>
@@ -149,25 +146,35 @@ export default function PlaneDetail({ plane, showTip, onTip }: Props) {
       <div className="plane-body">
         <div className="plane-grid-wrap">
           <div className="plane-grid">
-            {cells.map((c, i) => {
-              // 与悬停区块有交集的格不压暗（提亮由精确轮廓承担），其余汉字格压暗聚焦
-              const cs = base + i * 0x100
-              const overlapsHovered =
-                !!hovered && cs <= hovered.end && cs + 0xff >= hovered.start
-              return (
+            {cells.map((c, i) => (
+              <div
+                key={i}
+                className={c.han ? 'cell han' : 'cell'}
+                style={{ background: c.bg }}
+                onMouseMove={moveCell(i)}
+                onMouseLeave={leave}
+              />
+            ))}
+            {/* 汉字区块精确填充层：与悬停轮廓共用 outlineRects 几何，按真实码位范围着色，
+                绝对定位于网格内，出界与圆角由网格自身裁剪 */}
+            {planeBlocks.flatMap((b) =>
+              outlineRects(b, base).map((r, i) => (
                 <div
-                  key={i}
-                  className={
-                    c.han
-                      ? `cell han${hovered && !overlapsHovered ? ' dim' : ''}`
-                      : 'cell'
-                  }
-                  style={{ background: c.bg }}
-                  onMouseMove={moveCell(i)}
-                  onMouseLeave={leave}
+                  key={`fill-${b.name}-${i}`}
+                  className={`block-fill${hovered && hovered.name !== b.name ? ' dim' : ''}`}
+                  style={{
+                    left: `${r.x * 100}%`,
+                    top: `${r.y * 100}%`,
+                    width: `${r.w * 100}%`,
+                    height: `${r.h * 100}%`,
+                    background: BUCKET_META[b.category].color,
+                    // 极窄区块（< 1% 网格宽 ≈ 41 码位）加辉光补偿可发现性，如描述符、契丹小字
+                    boxShadow:
+                      r.w < 0.01 ? `0 0 5px ${BUCKET_META[b.category].color}aa` : undefined,
+                  }}
                 />
-              )
-            })}
+              )),
+            )}
           </div>
           {/* hover 时的真实比例轮廓（跨行区块为多段矩形），兼作区块提亮层 */}
           {planeBlocks

@@ -122,8 +122,3 @@ export function hanBlockAt(cp: number): HanBlockInfo | null {
 
 /** 数值 → U+XXXX 大写十六进制 */
 export const hex = (cp: number) => 'U+' + cp.toString(16).toUpperCase()
-
-/** [s, e] 与单元格 [cs, ce] 的重叠长度 */
-export function overlapLen(s: number, e: number, cs: number, ce: number): number {
-  return Math.max(0, Math.min(e, ce) - Math.max(s, cs) + 1)
-}
