@@ -34,11 +34,15 @@ interface Props {
   stack?: StackEntry[]
   /** 并集模型（悬停卡片「合计」行） */
   unionCov?: CoverageModel | null
+  /** 点击区块（网格/tray）时下钻逐字视图 */
+  onSelectBlock?: (name: string) => void
+  /** 当前下钻选中的区块名 */
+  selected?: string | null
   showTip: (e: { clientX: number; clientY: number }, tip: Omit<TipData, 'x' | 'y'>) => void
   onTip: (tip: TipData | null) => void
 }
 
-export default function CovDetail({ plane, coverage, stack, unionCov, showTip, onTip }: Props) {
+export default function CovDetail({ plane, coverage, stack, unionCov, onSelectBlock, selected, showTip, onTip }: Props) {
   const [hovered, setHovered] = useState<CuratedBlock | null>(null)
   const lastHit = useRef<string | null>(null)
   const overlayRef = useRef<HTMLCanvasElement | null>(null)
@@ -120,6 +124,20 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
     showTip(e, tipOf(b))
   }
 
+  /** 网格级点击：与 moveGrid 同一命中逻辑，命中汉字区块即下钻 */
+  const clickGrid = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!onSelectBlock) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cp = cpAtNorm(
+      base,
+      (e.clientX - rect.left) / rect.width,
+      (e.clientY - rect.top) / rect.height,
+      SPAN,
+    )
+    const b = curatedAt(cp)
+    if (b) onSelectBlock(b.name)
+  }
+
   return (
     <div className="plane-detail">
       <div className="plane-head">
@@ -142,7 +160,7 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
             ))}
           </span>
           <div className="plane-grid-wrap">
-            <div className="plane-grid" onMouseMove={moveGrid} onMouseLeave={leave}>
+            <div className="plane-grid" onMouseMove={moveGrid} onMouseLeave={leave} onClick={clickGrid}>
             {/* 背景纹理层：非汉字区块按真实码位范围铺 muted 色 */}
             {pm.segments.flatMap((s) => {
               const bg = BG_STYLE[s.category]
@@ -213,10 +231,12 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
             return (
               <div
                 key={b.name}
-                className={`tray-item${hot ? ' hot' : ''}`}
+                className={`tray-item${hot ? ' hot' : ''}${selected === b.name ? ' sel' : ''}`}
                 style={hot ? { borderColor: color, background: `${color}1f` } : undefined}
                 onMouseEnter={enter(b)}
                 onMouseLeave={leave}
+                onClick={() => onSelectBlock?.(b.name)}
+                title="点击下钻逐字覆盖地图"
               >
                 <span className="dot" style={{ background: color }} />
                 <span className="tray-title">{b.short}</span>

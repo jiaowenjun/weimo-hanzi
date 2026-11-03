@@ -158,6 +158,14 @@
   background: #ff5a521f;
 }
 
+/* 队列行边际贡献徽标：队列 ≥2 时显示「+N」（按并入顺序新增的缺字数） */
+.cov-qrow .q-add {
+  color: #2dd4bf;
+  font-weight: 700;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .cov-hint {
   color: var(--text-faint);
   font-size: 12px;
@@ -300,6 +308,89 @@
   display: block;
   height: 100%;
   border-radius: 2px;
+}
+
+/* tray 选中态：正在下钻的区块（青色描边，与 +N 徽标同一「新增/定位」语义） */
+.tray .tray-item.sel {
+  border-color: #2dd4bf99;
+}
+
+.tray .tray-item.sel .dot {
+  box-shadow: 0 0 0 2px #2dd4bf33;
+}
+
+/* —— 区块下钻（CovBlockDrill，P1）—— */
+.drill-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.drill-head b {
+  font-size: 15px;
+  color: #f2f5fa;
+}
+
+.drill-head .rg {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.drill-bar {
+  flex: 1;
+  min-width: 140px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(11, 14, 20, 0.82);
+  overflow: hidden;
+}
+
+.drill-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.drill-pct {
+  font-weight: 700;
+  color: #ff9738;
+  white-space: nowrap;
+}
+
+.drill-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.drill-close {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.drill-close:hover {
+  color: #ff5a52;
+  border-color: #ff5a52;
+}
+
+.drill canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  background: #0e1219;
 }
 
 @media (max-width: 640px) {

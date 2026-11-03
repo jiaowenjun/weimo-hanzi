@@ -6,8 +6,8 @@ import { HAN_BLOCKS } from './hanTable'
 import { subtotalOf } from './coverage'
 import type { CoverageReportFile, ReportBlock, ReportSummary } from './report'
 
-/** 两个升序不相交区间列表的交集（双指针） */
-function intersectRanges(a: [number, number][], b: [number, number][]): [number, number][] {
+/** 两个升序不相交区间列表的交集（双指针）；marginal.ts 等数据层复用 */
+export function intersectRanges(a: [number, number][], b: [number, number][]): [number, number][] {
   const out: [number, number][] = []
   let i = 0
   let j = 0

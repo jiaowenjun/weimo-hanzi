@@ -35,10 +35,14 @@ export interface CoverageModel {
   missingByPlane: Map<number, [number, number][]>
 }
 
-/** 字体栈条目（悬停卡片逐字体行） */
+/** 字体栈条目（悬停卡片逐字体行）；add* = 按队列顺序的边际新增（派生，可选） */
 export interface StackEntry {
   label: string
   blocksByName: Map<string, BlockCov>
+  /** 合计新增（队列行徽标用） */
+  addTotal?: number
+  /** 区块名 → 新增（悬停卡逐字体行用） */
+  addByBlock?: Map<string, number>
 }
 
 /** 统计芯片数据（View 仅渲染，不组文案） */
@@ -163,10 +167,12 @@ export function covMeta(
     const lines = stack.flatMap((f) => {
       const b = f.blocksByName.get(name)
       if (!b) return []
+      const add = f.addByBlock?.get(name)
+      const addTxt = add && add > 0 ? ` · 补 +${add.toLocaleString()}` : ''
       return [
         {
           k: f.label,
-          v: `${(b.coverage * 100).toFixed(1)}% · 缺 ${b.missingCount.toLocaleString()}`,
+          v: `${(b.coverage * 100).toFixed(1)}%${addTxt} · 缺 ${b.missingCount.toLocaleString()}`,
         },
       ]
     })

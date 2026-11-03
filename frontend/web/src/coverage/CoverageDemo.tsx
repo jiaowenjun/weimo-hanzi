@@ -8,6 +8,7 @@ import DetailCard, { type TipData } from '../components/DetailCard'
 import { CATEGORIES, CATEGORY_ORDER, PLANES, UNICODE_VERSION_LABEL, getPlane } from '../lib/model'
 import CovPanorama from './CovPanorama'
 import CovDetail from './CovDetail'
+import CovBlockDrill from './CovBlockDrill'
 import {
   assembleViewModel,
   statChips,
@@ -17,6 +18,8 @@ import {
 import { validateReportFile, type CoverageReportFile } from './lib/report'
 import { loadFontReports } from './lib/fontLoad'
 import { unionReports } from './lib/union'
+import { marginalContributions } from './lib/marginal'
+import { HAN_BLOCKS } from './lib/hanTable'
 
 // 详图展示哪些平面由数据派生：含汉字相关区块的平面（现为 0–3）
 const DETAIL_PLANES = PLANES.filter((p) => getPlane(p.id).curated.length > 0)
@@ -39,6 +42,8 @@ export default function CoverageDemo() {
   const [activeId, setActiveId] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  /** 下钻选中的区块名（官方名）；null = 未下钻 */
+  const [drill, setDrill] = useState<string | null>(null)
 
   // —— 组装（Model）：报告 → 视图数据，全部 memo 化 ——
   const views = useMemo(() => queue.map((q) => ({ id: q.id, model: assembleViewModel(q.report) })), [queue])
@@ -63,9 +68,19 @@ export default function CoverageDemo() {
     return models.length >= 2 ? unionReports(models) : (queue[0]?.report ?? null)
   }, [queue, activeId, models])
   const chips = useMemo(() => statChips(activeModel), [activeModel])
+  /** 并集边际贡献（派生数据，队列顺序 = 并入顺序） */
+  const marginal = useMemo(() => marginalContributions(models), [models])
+  /** 下钻区块的中文名（标题用，hanTable 挂接） */
+  const drillBlockZh = useMemo(() => HAN_BLOCKS.find((b) => b.name === drill)?.zh ?? drill, [drill])
   const stack: StackEntry[] = useMemo(
-    () => views.map((v) => ({ label: v.model.label, blocksByName: v.model.blocksByName })),
-    [views],
+    () =>
+      views.map((v, i) => ({
+        label: v.model.label,
+        blocksByName: v.model.blocksByName,
+        addTotal: marginal[i]?.total,
+        addByBlock: marginal[i]?.byBlock,
+      })),
+    [views, marginal],
   )
 
   const showTip = useCallback(
@@ -188,7 +203,7 @@ export default function CoverageDemo() {
                 <span className="q-pct">{pct(overall)}</span>
               </button>
             )}
-            {views.map((v) => (
+            {views.map((v, i) => (
               <div
                 key={v.id}
                 className={`cov-qrow${activeId === v.id ? ' active' : ''}`}
@@ -200,6 +215,11 @@ export default function CoverageDemo() {
                   {v.model.label}
                 </span>
                 <span className="q-pct">{pct(v.model)}</span>
+                {views.length >= 2 && !!marginal[i]?.total && (
+                  <span className="q-add" title="按队列顺序并入时，此款字体新增覆盖的缺字数">
+                    +{marginal[i].total.toLocaleString()}
+                  </span>
+                )}
                 <button
                   type="button"
                   className="q-remove"
@@ -271,7 +291,8 @@ export default function CoverageDemo() {
           </h2>
           <p className="section-hint">
             区块内缺失呈<b>斜纹暗罩</b>，覆盖部分保持分类色。悬停查看当前视图在此区块的覆盖率与缺失字数
-            {stack.length >= 2 ? '，并对比队列中每款字体各自的覆盖情况' : ''}。
+            {stack.length >= 2 ? '，并对比队列中每款字体各自的覆盖情况' : ''}
+            ；<b>点击区块（网格或右侧标签）下钻逐字覆盖地图</b>。
           </p>
           <div className="plane-grid-list">
             {DETAIL_PLANES.map((p) => (
@@ -281,12 +302,33 @@ export default function CoverageDemo() {
                 coverage={activeModel}
                 stack={stack}
                 unionCov={overall}
+                onSelectBlock={setDrill}
+                selected={drill}
                 showTip={showTip}
                 onTip={hideTip}
               />
             ))}
           </div>
         </section>
+
+        {drill && activeModel && (
+          <section>
+            <h2>
+              ③ 区块下钻 · {drillBlockZh} <span>1 格 = 1 码位 · 每行 0x100 · 亮 = 覆盖 · 暗纹 = 缺失</span>
+            </h2>
+            <p className="section-hint">
+              {activeModel.label} 在该区块的逐字覆盖地图：亮格 = 已覆盖，暗纹格 = 缺失，
+              深缝 = 未分配码位（Scripts.txt 口径不计入分母）。悬停查看单字码位与状态。
+            </p>
+            <CovBlockDrill
+              name={drill}
+              coverage={activeModel}
+              onClose={() => setDrill(null)}
+              showTip={showTip}
+              onTip={hideTip}
+            />
+          </section>
+        )}
       </main>
 
       <footer>
