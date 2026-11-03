@@ -129,8 +129,20 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
         <span className="plane-note">{plane.note}</span>
       </div>
       <div className="plane-body">
-        <div className="plane-grid-wrap">
-          <div className="plane-grid" onMouseMove={moveGrid} onMouseLeave={leave}>
+        <div className="grid-frame">
+          {/* 列/行 0–F hex 刻度（每格 0x100）：与全景 16×16 网格同一自相似尺度 */}
+          <span className="axis axis-cols" aria-hidden>
+            {Array.from({ length: COLS }, (_, c) => (
+              <i key={c}>{c.toString(16)}</i>
+            ))}
+          </span>
+          <span className="axis axis-rows" aria-hidden>
+            {Array.from({ length: COLS }, (_, r) => (
+              <i key={r}>{r.toString(16)}</i>
+            ))}
+          </span>
+          <div className="plane-grid-wrap">
+            <div className="plane-grid" onMouseMove={moveGrid} onMouseLeave={leave}>
             {/* 背景纹理层：非汉字区块按真实码位范围铺 muted 色 */}
             {pm.segments.flatMap((s) => {
               const bg = BG_STYLE[s.category]
@@ -168,6 +180,8 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
             )}
             {/* 缺失标示覆盖层：暗罩 + 斜纹，不拦截鼠标事件 */}
             <canvas ref={overlayRef} className="cov-canvas" width={OSIZE} height={OSIZE} />
+            {/* 极淡格线：每 1/16 一条，与外缘 0–F 刻度对齐，让「每格 0x100」可数 */}
+            <span className="grid-lines" aria-hidden />
           </div>
           {/* hover 时的真实比例轮廓，位于覆盖层之上（wrap 的兄弟节点） */}
           {pm.curated
@@ -189,11 +203,13 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
                 />
               )),
             )}
+          </div>
         </div>
         <aside className="tray">
           {pm.curated.map((b) => {
             const hot = !!hovered && hovered.name === b.name
             const color = CATEGORIES[b.category].color
+            const cov = coverage?.blocksByName.get(b.name)
             return (
               <div
                 key={b.name}
@@ -205,6 +221,15 @@ export default function CovDetail({ plane, coverage, stack, unionCov, showTip, o
                 <span className="dot" style={{ background: color }} />
                 <span className="tray-title">{b.short}</span>
                 <span className="rg">{hex(b.start).slice(2)}</span>
+                {/* 迷你覆盖条：条 = 分类色、底 = 缺失暗罩同色，悬停 title 出精确数字 */}
+                {cov && (
+                  <span
+                    className="tray-bar"
+                    title={`覆盖 ${(cov.coverage * 100).toFixed(1)}% · 缺 ${cov.missingCount.toLocaleString()} 字`}
+                  >
+                    <i style={{ width: `${Math.max(2, cov.coverage * 100).toFixed(1)}%`, background: color }} />
+                  </span>
+                )}
               </div>
             )
           })}

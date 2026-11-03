@@ -187,6 +187,121 @@
   pointer-events: none;
 }
 
+/* —— 全景空平面省略占位卡（CovPanorama）——
+   与 .plane-mini 同高（flex 拉伸），虚线卡交代被跳过的连续空平面 */
+.plane-gap {
+  margin: 0;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+}
+
+.plane-gap > span {
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--text-faint);
+}
+
+.plane-gap figcaption em {
+  display: block;
+  font-style: normal;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* —— 详图刻度轴与格线（CovDetail）——
+   grid-frame：左/上各留一条 0–F 十六进制刻度，平面网格占据 (2,2) 格；
+   刻度与 .grid-lines 同为 1/16 步长，对应「每格 0x100」 */
+.grid-frame {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: 16px auto;
+}
+
+/* 网格必须显式落在 (2,2)：刻度轴已显式占据 (1,2)/(2,1)，
+   自动放置会把 plane-grid-wrap 排进左上角 18×16 的空格，整个详图随之塌陷 */
+.grid-frame > .plane-grid-wrap {
+  grid-area: 2 / 2;
+}
+
+.axis {
+  display: grid;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.axis-cols {
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: repeat(16, 1fr);
+  align-items: end;
+  padding-bottom: 3px;
+}
+
+.axis-cols i {
+  font-style: normal;
+  text-align: center;
+}
+
+.axis-rows {
+  grid-column: 1;
+  grid-row: 2;
+  grid-template-rows: repeat(16, 1fr);
+  justify-items: end;
+  padding-right: 5px;
+}
+
+.axis-rows i {
+  font-style: normal;
+  line-height: 1;
+}
+
+.grid-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(227, 231, 240, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(227, 231, 240, 0.05) 1px, transparent 1px);
+  background-size: calc(100% / 16) calc(100% / 16);
+}
+
+/* —— tray 迷你覆盖条（CovDetail）——
+   条 = 分类色，底 = 缺失暗罩同色；无覆盖数据时整条隐藏 */
+.tray .tray-item {
+  position: relative;
+  padding-bottom: 7px;
+}
+
+.tray .tray-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: rgba(11, 14, 20, 0.82);
+  overflow: hidden;
+}
+
+.tray .tray-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
 @media (max-width: 640px) {
   .cov-bar {
     gap: 8px;

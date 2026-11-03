@@ -1,6 +1,7 @@
 // 覆盖演示页的全景缩略图：与主页面 Panorama 同一投影（256×256，1 像素 = 1 码位），
-// 在区块底图之上叠加「缺失暗罩」——报告 missingRanges 内的码位压暗，覆盖部分保持原色
-import { useEffect, useRef } from 'react'
+// 在区块底图之上叠加「缺失暗罩」——报告 missingRanges 内的码位压暗，覆盖部分保持原色；
+// 再叠 16×16 淡网格（每条 = 0x100 码位边界）与覆盖区高光，与详图「每格 0x100」同一尺度
+import { Fragment, useEffect, useRef } from 'react'
 import {
   PLANES,
   PLANE_SIZE,
@@ -40,7 +41,28 @@ function drawPlane(canvas: HTMLCanvasElement, pm: PlaneModel, missing?: [number,
       ctx.fillRect(r.x * SIZE, r.y * SIZE, r.w * SIZE, r.h * SIZE)
     }
   }
+  // 淡网格线（每 16px 一条 = 0x100 码位边界）：位于色块之上、缺失暗罩之下，
+  // 让「全景 → 详图」呈现为同一投影的连续放大（详图每格恰好一格网格）
+  ctx.strokeStyle = 'rgba(227, 231, 240, 0.09)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (let i = 1; i < 16; i++) {
+    const p = (i * SIZE) / 16 + 0.5
+    ctx.moveTo(p, 0)
+    ctx.lineTo(p, SIZE)
+    ctx.moveTo(0, p)
+    ctx.lineTo(SIZE, p)
+  }
+  ctx.stroke()
   if (!missing) return
+  // 覆盖区提亮：汉字相关区块叠淡白高光，缺失部分随后被暗罩压回 —— 净效果为明暗对比拉大，
+  // 远观时「亮 = 覆盖、暗 = 缺失」成为第一读数（分类色退居其次）
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.07)'
+  for (const b of pm.curated) {
+    for (const r of rectsForRange(b.start - base, b.end - base, SIZE, 1)) {
+      ctx.fillRect(Math.floor(r.x * SIZE), Math.floor(r.y * SIZE), Math.max(1, r.w * SIZE), Math.max(1, r.h * SIZE))
+    }
+  }
   // 缺失标示：先暗罩、再 45° 斜纹（与详图共用 hatchPattern，密度一致）
   const rects: { x: number; y: number; w: number; h: number }[] = []
   for (const [s, e] of missing) {
@@ -135,25 +157,40 @@ export default function CovPanorama({ coverage, stack, unionCov, onTip, showTip 
 
   return (
     <div className="panorama">
-      {VISIBLE_PLANES.map((p, i) => (
-        <figure key={p.id} className={`plane-mini${getPlane(p.id).curated.length > 0 ? ' has-han' : ''}`}>
-          {/* 事件挂 canvas 而非 figure：figure 含底部说明文字，按其矩形折算码位会偏移 */}
-          <canvas
-            ref={(el) => {
-              refs.current[i] = el
-            }}
-            width={SIZE}
-            height={SIZE}
-            onMouseMove={(e) => handleMove(e, p.id)}
-            onMouseLeave={() => onTip(null)}
-          />
-          <figcaption>
-            <b>平面 {p.id}</b>
-            <span>{p.abbr}</span>
-            <em>{p.zh}</em>
-          </figcaption>
-        </figure>
-      ))}
+      {VISIBLE_PLANES.map((p, i) => {
+        const prev = i > 0 ? VISIBLE_PLANES[i - 1].id : null
+        return (
+          <Fragment key={p.id}>
+            {/* 空平面省略指示：码空间大部分未分配，被跳过的平面用占位卡交代而非无声消失 */}
+            {prev !== null && p.id - prev > 1 && (
+              <figure className="plane-gap" title={`平面 ${prev + 1}–${p.id - 1}：无任何区块`}>
+                <span aria-hidden>⋯</span>
+                <figcaption>
+                  平面 {prev + 1}–{p.id - 1}
+                  <em>无区块</em>
+                </figcaption>
+              </figure>
+            )}
+            <figure className={`plane-mini${getPlane(p.id).curated.length > 0 ? ' has-han' : ''}`}>
+              {/* 事件挂 canvas 而非 figure：figure 含底部说明文字，按其矩形折算码位会偏移 */}
+              <canvas
+                ref={(el) => {
+                  refs.current[i] = el
+                }}
+                width={SIZE}
+                height={SIZE}
+                onMouseMove={(e) => handleMove(e, p.id)}
+                onMouseLeave={() => onTip(null)}
+              />
+              <figcaption>
+                <b>平面 {p.id}</b>
+                <span>{p.abbr}</span>
+                <em>{p.zh}</em>
+              </figcaption>
+            </figure>
+          </Fragment>
+        )
+      })}
     </div>
   )
 }
