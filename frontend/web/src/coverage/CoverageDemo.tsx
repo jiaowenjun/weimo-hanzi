@@ -1,26 +1,32 @@
-// 字体覆盖热力图演示页（/coverage.html）：直接选择字体文件（可多选）在浏览器内
-// 实时计算覆盖度，或载入 font-coverage 报告 JSON。多款字体按「字体栈」语义取并集：
-// 总体覆盖 = 并集（默认视图），队列中可切换/移除单字体查看各自的覆盖。
-// 缺失标示叠加到码空间全景与区块详图 —— 暗罩/斜纹 = 当前视图缺失的码位，
-// 保持原色 = 已覆盖。复用主页面组件体系与全局样式，不改动主页面任何代码
+// 字体覆盖热力图演示页（/coverage.html）—— 纯 View 层。
+// 数据链路（MV）：字体文件/报告 JSON → CoverageReportFile（唯一数据模型，
+// lib/report.ts）→ 组装层 lib/coverage.ts（ViewModel + 芯片/悬停数据）→
+// 本组件与 CovPanorama/CovDetail 渲染；多字体并集 = lib/union.ts 在数据层求交。
+// 本组件只持有「队列内容 + 激活视图」两个 UI 状态，不包含任何解析/计算逻辑
 import { useCallback, useMemo, useState } from 'react'
 import DetailCard, { type TipData } from '../components/DetailCard'
 import { CATEGORIES, CATEGORY_ORDER, PLANES, UNICODE_VERSION_LABEL, getPlane } from '../lib/model'
 import CovPanorama from './CovPanorama'
 import CovDetail from './CovDetail'
-import { parseCoverageReport, type CoverageModel, type Subtotal, type StackEntry } from './lib/coverage'
-import { loadFontCoverage } from './lib/fontLoad'
-import { unionModels } from './lib/union'
+import {
+  assembleViewModel,
+  statChips,
+  type CoverageModel,
+  type StackEntry,
+} from './lib/coverage'
+import { validateReportFile, type CoverageReportFile } from './lib/report'
+import { loadFontReports } from './lib/fontLoad'
+import { unionReports } from './lib/union'
 
 // 详图展示哪些平面由数据派生：含汉字相关区块的平面（现为 0–3）
 const DETAIL_PLANES = PLANES.filter((p) => getPlane(p.id).curated.length > 0)
 
-const pct = (s: Subtotal) => `${(s.coverage * 100).toFixed(1)}%`
+const pct = (m: CoverageModel) => `${(m.summary.total.coverage * 100).toFixed(1)}%`
 
 /** 字体队列条目：一个字体文件成员（ttc 逐成员展开）或一份报告 JSON */
 interface QueueEntry {
   id: string
-  model: CoverageModel
+  report: CoverageReportFile
 }
 
 let uid = 0
@@ -34,22 +40,32 @@ export default function CoverageDemo() {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
-  /** 总体 = 队列全部字体的并集（≥2 款时才有意义） */
+  // —— 组装（Model）：报告 → 视图数据，全部 memo 化 ——
+  const views = useMemo(() => queue.map((q) => ({ id: q.id, model: assembleViewModel(q.report) })), [queue])
+  const models = useMemo(() => queue.map((q) => q.report), [queue])
   const overall = useMemo(
-    () => (queue.length >= 2 ? unionModels(queue.map((q) => q.model)) : null),
-    [queue],
+    () => (models.length >= 2 ? assembleViewModel(unionReports(models)) : null),
+    [models],
   )
   const activeModel = useMemo(() => {
     if (activeId) {
-      const hit = queue.find((q) => q.id === activeId)
+      const hit = views.find((v) => v.id === activeId)
       if (hit) return hit.model
     }
-    return overall ?? queue[0]?.model ?? null
-  }, [queue, activeId, overall])
-  /** 悬停卡片的逐字体行（含各字体自己的覆盖率） */
+    return overall ?? views[0]?.model ?? null
+  }, [views, activeId, overall])
+  /** 当前激活视图对应的报告（导出用）；单字体 = 其报告，合计 = 并集报告 */
+  const activeReport = useMemo(() => {
+    if (activeId) {
+      const hit = queue.find((q) => q.id === activeId)
+      if (hit) return hit.report
+    }
+    return models.length >= 2 ? unionReports(models) : (queue[0]?.report ?? null)
+  }, [queue, activeId, models])
+  const chips = useMemo(() => statChips(activeModel), [activeModel])
   const stack: StackEntry[] = useMemo(
-    () => queue.map((q) => ({ label: q.model.label, blocksByName: q.model.blocksByName })),
-    [queue],
+    () => views.map((v) => ({ label: v.model.label, blocksByName: v.model.blocksByName })),
+    [views],
   )
 
   const showTip = useCallback(
@@ -69,11 +85,25 @@ export default function CoverageDemo() {
     setQueue((prev) => prev.filter((q) => q.id !== id))
     if (activeId === id) setActiveId('')
   }
-
-  /** 追加一个模型列表（字体文件的各成员 / 报告 JSON 的单模型），并切到合计视图 */
-  const appendModels = (models: CoverageModel[]) => {
-    setQueue((prev) => [...prev, ...models.map((m) => ({ id: nextId(), model: m }))])
+  const appendReports = (reports: CoverageReportFile[]) => {
+    setQueue((prev) => [...prev, ...reports.map((r) => ({ id: nextId(), report: r }))])
     setActiveId('')
+  }
+
+  /** 导出当前视图的报告 JSON（数据模型落盘，可再载入复现） */
+  const exportActive = () => {
+    if (!activeReport) return
+    const name =
+      (activeReport.font.postscriptName ?? activeReport.font.family ?? 'coverage')
+        .replace(/[^\w.-]+/g, '_')
+        .slice(0, 60) + '.coverage.json'
+    const blob = new Blob([JSON.stringify(activeReport, null, 2) + '\n'], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,13 +114,12 @@ export default function CoverageDemo() {
     for (const f of files) {
       try {
         if (f.name.toLowerCase().endsWith('.json')) {
-          const parsed = parseCoverageReport(JSON.parse(await f.text()))
+          const parsed = validateReportFile(JSON.parse(await f.text()))
           if ('error' in parsed) throw new Error(parsed.error)
-          appendModels([parsed])
+          appendReports([parsed.report])
         } else {
           const buf = await f.arrayBuffer()
-          const models = await loadFontCoverage(buf, setBusy)
-          appendModels(models)
+          appendReports(await loadFontReports(buf, setBusy))
         }
       } catch (ex) {
         setErr(`${f.name}：${ex instanceof Error ? ex.message : String(ex)}`)
@@ -132,7 +161,10 @@ export default function CoverageDemo() {
             <span className="cov-chip" title={activeModel.sublabel}>
               <b>{activeModel.label}</b>
               <i>{activeModel.sublabel}</i>
-              <em>{pct(activeModel.summary.total)}</em>
+              <em>{pct(activeModel)}</em>
+              <button type="button" onClick={exportActive} aria-label="导出报告 JSON" title="导出当前视图的报告 JSON">
+                ⬇ JSON
+              </button>
               <button type="button" onClick={clearAll} aria-label="清空">
                 ✕
               </button>
@@ -142,7 +174,7 @@ export default function CoverageDemo() {
           <span className="cov-hint">总体覆盖 = 各字体并集（字体栈语义）· 本地计算，不上传任何数据</span>
         </div>
 
-        {queue.length > 0 && (
+        {views.length > 0 && (
           <div className="cov-queue" role="tablist" aria-label="字体队列与视图切换">
             {overall && (
               <button
@@ -152,29 +184,29 @@ export default function CoverageDemo() {
                 className={`cov-qrow cov-qall${activeId === '' ? ' active' : ''}`}
                 onClick={() => setActiveId('')}
               >
-                <span className="q-label">Σ 合计（{queue.length} 款并集）</span>
-                <span className="q-pct">{pct(overall.summary.total)}</span>
+                <span className="q-label">Σ 合计（{views.length} 款并集）</span>
+                <span className="q-pct">{pct(overall)}</span>
               </button>
             )}
-            {queue.map((q) => (
+            {views.map((v) => (
               <div
-                key={q.id}
-                className={`cov-qrow${activeId === q.id ? ' active' : ''}`}
+                key={v.id}
+                className={`cov-qrow${activeId === v.id ? ' active' : ''}`}
                 role="tab"
-                aria-selected={activeId === q.id}
-                onClick={() => setActiveId(q.id)}
+                aria-selected={activeId === v.id}
+                onClick={() => setActiveId(v.id)}
               >
-                <span className="q-label" title={q.model.sublabel}>
-                  {q.model.label}
+                <span className="q-label" title={v.model.sublabel}>
+                  {v.model.label}
                 </span>
-                <span className="q-pct">{pct(q.model.summary.total)}</span>
+                <span className="q-pct">{pct(v.model)}</span>
                 <button
                   type="button"
                   className="q-remove"
-                  aria-label={`移除 ${q.model.label}`}
+                  aria-label={`移除 ${v.model.label}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    removeEntry(q.id)
+                    removeEntry(v.id)
                   }}
                 >
                   ✕
@@ -184,27 +216,17 @@ export default function CoverageDemo() {
           </div>
         )}
 
-        {activeModel && (
+        {chips.length > 0 && (
           <div className="stat-chips">
-            <span className="stat">
-              <b>
-                {activeModel.summary.total.covered.toLocaleString()}{' '}
-                <i className="pct-of">/ {activeModel.summary.total.assigned.toLocaleString()}</i>
-              </b>
-              <i>13 区块覆盖 · {pct(activeModel.summary.total)}</i>
-            </span>
-            <span className="stat">
-              <b>{pct(activeModel.summary.unified)}</b>
-              <i>统一表意（11 区块）</i>
-            </span>
-            <span className="stat">
-              <b>{pct(activeModel.summary.compat)}</b>
-              <i>兼容表意（2 区块）</i>
-            </span>
-            <span className="stat">
-              <b>{pct(activeModel.summary.scattered)}</b>
-              <i>散居 Han（部首/符号）</i>
-            </span>
+            {chips.map((c) => (
+              <span className="stat" key={c.label}>
+                <b>
+                  {c.value}
+                  {c.of && <i className="pct-of"> {c.of}</i>}
+                </b>
+                <i>{c.label}</i>
+              </span>
+            ))}
           </div>
         )}
 

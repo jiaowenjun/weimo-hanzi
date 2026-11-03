@@ -1,9 +1,9 @@
-// 浏览器端覆盖度实时计算：fontkit 字体对象 + hanTable 参考表 → CoverageModel
-// 算法与 CLI（scripts/font-coverage.mjs）一致：遍历区块已分配区间，
-// 交替切分覆盖/缺失运行段；分母 = 实际已分配码位
-import { PLANE_SIZE } from '../../lib/model'
-import { MAIN_BLOCKS, SCATTERED_BLOCKS, type HanBlock } from './hanTable'
-import type { CoverageModel, Subtotal, BlockCov } from './coverage'
+// 浏览器端覆盖度计算：字体字符集 + hanTable 参考表 → CoverageReportFile
+// （与 CLI 输出同构的 JSON 数据模型，可导出/复载）。
+// 算法与 CLI 一致：遍历区块已分配区间，交替切分覆盖/缺失运行段；
+// 分母 = 实际已分配码位
+import { MAIN_BLOCKS, SCATTERED_BLOCKS, HAN_UNICODE_VERSION, HAN_SOURCE, type HanBlock } from './hanTable'
+import type { CoverageReportFile, ReportBlock } from './report'
 
 /** 在一组闭区间上统计 charset 命中，并交替切分出覆盖/缺失数值区间 */
 function scan(ranges: [number, number][], charset: Set<number>) {
@@ -27,83 +27,70 @@ function scan(ranges: [number, number][], charset: Set<number>) {
   return { covered, coveredRanges, missingRanges }
 }
 
-export function subtotal(list: { assigned: number; covered: number }[]): Subtotal {
-  const assigned = list.reduce((n, b) => n + b.assigned, 0)
-  const covered = list.reduce((n, b) => n + b.covered, 0)
-  return { covered, assigned, coverage: assigned === 0 ? 0 : +(covered / assigned).toFixed(6) }
-}
-
-/** 缺失区间按平面分桶并合并相邻段（跨平面切开仅作稳健性兜底） */
-export function bucketByPlane(missing: [number, number][]): Map<number, [number, number][]> {
-  const byPlane = new Map<number, [number, number][]>()
-  for (const [lo, hi] of missing) {
-    let s = lo
-    while (s <= hi) {
-      const plane = Math.floor(s / PLANE_SIZE)
-      const end = Math.min(hi, (plane + 1) * PLANE_SIZE - 1)
-      const list = byPlane.get(plane) ?? []
-      const prev = list[list.length - 1]
-      if (prev && prev[1] === s - 1) prev[1] = end
-      else list.push([s, end])
-      byPlane.set(plane, list)
-      s = end + 1
-    }
-  }
-  return byPlane
-}
-
-/** 单个区块的覆盖计算结果 */
-interface BlockResult {
-  name: string
-  category: string
-  assigned: number
-  covered: number
-  missingRanges: [number, number][]
-}
-
-function analyzeBlock(b: HanBlock, charset: Set<number>): BlockResult {
-  const { covered, missingRanges } = scan(b.ranges, charset)
-  return { name: b.name, category: b.category, assigned: b.assigned, covered, missingRanges }
-}
-
 export interface FontMemberInfo {
-  /** 展示名（family + subfamily） */
-  label: string
-  /** 副标签（postscriptName · 格式 · cmap 条目数） */
-  sublabel: string
   family: string | null
   subfamily: string | null
+  postscriptName: string | null
   format: string
+  fontNumber: number | null
 }
 
-/** 由一个字体的字符集实时计算 CoverageModel（与报告 JSON 解析产出同构） */
-export function computeCoverage(charset: Set<number>, info: FontMemberInfo): CoverageModel {
-  const mainResults = MAIN_BLOCKS.map((b) => analyzeBlock(b, charset))
-  const scatteredResults = SCATTERED_BLOCKS.map((b) => analyzeBlock(b, charset))
+const hex = (cp: number) => cp.toString(16).toUpperCase().padStart(4, '0')
+const toHexRanges = (rs: [number, number][]) => rs.map(([s, e]) => [hex(s), hex(e)] as [string, string])
 
-  const blocksByName = new Map<string, BlockCov>()
-  const allMissing: [number, number][] = []
-  for (const r of [...mainResults, ...scatteredResults]) {
-    blocksByName.set(r.name, {
-      covered: r.covered,
-      assigned: r.assigned,
-      coverage: r.assigned === 0 ? 0 : +(r.covered / r.assigned).toFixed(6),
-      missingCount: r.assigned - r.covered,
-      missingRanges: r.missingRanges,
-    })
-    allMissing.push(...r.missingRanges)
+/** 单区块 → 报告区块条目（JSON 形状，hex 区间） */
+function blockOf(b: HanBlock, charset: Set<number>): ReportBlock {
+  const { covered, coveredRanges, missingRanges } = scan(b.ranges, charset)
+  return {
+    name: b.name,
+    zh: b.zh,
+    category: b.category,
+    start: hex(b.start),
+    end: hex(b.end),
+    assigned: b.assigned,
+    covered,
+    coverage: +(covered / b.assigned).toFixed(6),
+    missingCount: b.assigned - covered,
+    mappedUnassigned: 0, // 浏览器端不做未分配码位映射检测（CLI 的诊断项）
+    coveredRanges: toHexRanges(coveredRanges),
+    missingRanges: toHexRanges(missingRanges),
   }
+}
+
+/** 由一个字体的字符集实时计算覆盖度报告（JSON 数据模型，与 CLI 输出同构） */
+export function computeReport(charset: Set<number>, info: FontMemberInfo): CoverageReportFile {
+  const blocks = MAIN_BLOCKS.map((b) => blockOf(b, charset))
+  const scatteredBlocks = SCATTERED_BLOCKS.map((b) => blockOf(b, charset))
+
+  const sumOf = (list: ReportBlock[]) => {
+    const assigned = list.reduce((n, b) => n + b.assigned, 0)
+    const covered = list.reduce((n, b) => n + b.covered, 0)
+    return { covered, assigned, coverage: +(covered / assigned).toFixed(6) }
+  }
+  const unified = sumOf(blocks.filter((b) => b.category === 'unified'))
+  const compat = sumOf(blocks.filter((b) => b.category === 'compat'))
+  const scattered = sumOf(scatteredBlocks)
 
   return {
-    label: info.label,
-    sublabel: info.sublabel,
-    summary: {
-      total: subtotal(mainResults),
-      unified: subtotal(mainResults.filter((r) => r.category === 'unified')),
-      compat: subtotal(mainResults.filter((r) => r.category === 'compat')),
-      scattered: subtotal(scatteredResults),
+    tool: 'weimo-hanzi font-coverage (browser)',
+    generatedAt: new Date().toISOString(),
+    font: {
+      path: null,
+      format: info.format,
+      fontNumber: info.fontNumber,
+      family: info.family,
+      subfamily: info.subfamily,
+      postscriptName: info.postscriptName,
+      charSetSize: charset.size,
     },
-    blocksByName,
-    missingByPlane: bucketByPlane(allMissing),
+    reference: { unicodeVersion: HAN_UNICODE_VERSION, source: HAN_SOURCE, script: 'Han' },
+    summary: {
+      total: { covered: unified.covered + compat.covered, assigned: unified.assigned + compat.assigned, coverage: +((unified.covered + compat.covered) / (unified.assigned + compat.assigned)).toFixed(6) },
+      unified,
+      compat,
+      scattered,
+    },
+    blocks,
+    scatteredBlocks,
   }
 }

@@ -1,16 +1,10 @@
-// 覆盖度报告解析：scripts/font-coverage.mjs 输出的 JSON → 演示页运行时模型
-// 运行时用户输入与 model.ts 的静态数据模型分离，此处只做解析/校验/分桶，不含渲染
+// 覆盖度 Model 组装层：CoverageReportFile（JSON 数据模型，CLI/浏览器/并集同构）
+// → CoverageModel（内存 ViewModel），对码空间全景、区块详图、统计芯片、
+// 悬停卡片等 View 提供纯数据接口；View 不触碰报告 JSON 细节。
+// 分层约定与 src/lib/model.ts 一致：数据（report.ts/hanTable.ts）→ 组装（本文件）→ View
 import { PLANE_SIZE } from '../../lib/model'
-
-/** 报告中的区块条目（missingRanges 已解析为数值闭区间） */
-interface ReportBlock {
-  name: string
-  assigned: number
-  covered: number
-  coverage: number
-  missingCount: number
-  missingRanges: [number, number][]
-}
+import { HAN_BLOCKS } from './hanTable'
+import type { CoverageReportFile } from './report'
 
 /** 悬停卡片查表用的区块覆盖摘要（missingRanges 为数值闭区间，供并集求交） */
 export interface BlockCov {
@@ -27,123 +21,134 @@ export interface Subtotal {
   coverage: number
 }
 
+/** 组装出的 ViewModel：两视图（全景/详图）与统计芯片的唯一数据来源 */
 export interface CoverageModel {
   /** 字体展示名：family subfamily（回退 postscriptName / 未知字体） */
   label: string
   /** 副标签：postscriptName · 格式 · cmap 条目数 */
   sublabel: string
-  /** 四档小计：13 区块合计 / 统一表意 / 兼容表意 / 散居 Han */
+  /** 四档小计：13 区块合计 / 统一表意 / 兼容表意 / 散居 Han（按区块重算，不信任报告冗余字段） */
   summary: { total: Subtotal; unified: Subtotal; compat: Subtotal; scattered: Subtotal }
   /** 官方区块名 → 覆盖摘要（含散居区块，供悬停卡片按 curated.name 查表） */
   blocksByName: Map<string, BlockCov>
-  /** 平面号 → 缺失码位闭区间（blocks + scatteredBlocks 合并，可直接驱动暗罩绘制） */
+  /** 平面号 → 缺失码位闭区间（blocks + scatteredBlocks 合并，驱动暗罩/斜纹绘制） */
   missingByPlane: Map<number, [number, number][]>
-}
-
-export type ParseResult = CoverageModel | { error: string }
-
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
-
-const hexOf = (v: unknown): number | null => {
-  if (typeof v !== 'string' || !/^[0-9a-fA-F]{1,6}$/.test(v)) return null
-  const n = Number.parseInt(v, 16)
-  return Number.isInteger(n) && n >= 0 && n <= 0x10ffff ? n : null
-}
-
-const numOf = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
-
-/** 解析一个区块条目；损坏时返回 null（容错：未知区块名仍可绘制，只是无悬停元信息） */
-function parseBlock(v: unknown): ReportBlock | null {
-  if (!isObj(v) || typeof v.name !== 'string' || !Array.isArray(v.missingRanges)) return null
-  const assigned = numOf(v.assigned)
-  const covered = numOf(v.covered)
-  const coverage = numOf(v.coverage)
-  const missingCount = numOf(v.missingCount)
-  if (assigned === null || covered === null || coverage === null || missingCount === null) return null
-  const missingRanges: [number, number][] = []
-  for (const pair of v.missingRanges) {
-    if (!Array.isArray(pair) || pair.length !== 2) return null
-    const lo = hexOf(pair[0])
-    const hi = hexOf(pair[1])
-    if (lo === null || hi === null || lo > hi) return null
-    missingRanges.push([lo, hi])
-  }
-  return { name: v.name, assigned, covered, coverage, missingCount, missingRanges }
-}
-
-export function parseCoverageReport(json: unknown): ParseResult {
-  if (!isObj(json) || !Array.isArray(json.blocks) || json.blocks.length === 0) {
-    return { error: '这不是 font-coverage 报告：缺少 blocks 数组（请载入 pnpm coverage 生成的 .coverage.json）' }
-  }
-  const all = [...(json.blocks as unknown[]), ...(Array.isArray(json.scatteredBlocks) ? (json.scatteredBlocks as unknown[]) : [])]
-  const parsed = all.map(parseBlock)
-  if (parsed.some((b) => b === null)) {
-    return { error: '报告数据损坏：blocks/missingRanges 形状不符合预期' }
-  }
-
-  const font = isObj(json.font) ? json.font : {}
-  const family = typeof font.family === 'string' ? font.family : null
-  const subfamily = typeof font.subfamily === 'string' ? font.subfamily : null
-  const psName = typeof font.postscriptName === 'string' ? font.postscriptName : null
-  const format = typeof font.format === 'string' ? font.format : null
-  const charSetSize = numOf(font.charSetSize)
-  const label = [family, subfamily].filter(Boolean).join(' ') || psName || '未知字体'
-  const subParts = [psName, format, charSetSize !== null ? `cmap ${charSetSize.toLocaleString()} 条` : null].filter(Boolean)
-  const sublabel = subParts.join(' · ')
-
-  const subOf = (key: string): Subtotal => {
-    const s = isObj(json.summary) && isObj(json.summary[key]) ? json.summary[key] : {}
-    return {
-      covered: numOf(s.covered) ?? 0,
-      assigned: numOf(s.assigned) ?? 0,
-      coverage: numOf(s.coverage) ?? 0,
-    }
-  }
-
-  const blocksByName = new Map<string, BlockCov>()
-  const missingByPlane = new Map<number, [number, number][]>()
-  for (const b of parsed as ReportBlock[]) {
-    blocksByName.set(b.name, {
-      covered: b.covered,
-      assigned: b.assigned,
-      coverage: b.coverage,
-      missingCount: b.missingCount,
-      missingRanges: b.missingRanges,
-    })
-    for (const [lo, hi] of b.missingRanges) {
-      // 理论上汉字区间不跨平面，仍按平面边界切开以保证稳健
-      let s = lo
-      while (s <= hi) {
-        const plane = Math.floor(s / PLANE_SIZE)
-        const end = Math.min(hi, (plane + 1) * PLANE_SIZE - 1)
-        const list = missingByPlane.get(plane) ?? []
-        const prev = list[list.length - 1]
-        if (prev && prev[1] === s - 1) prev[1] = end // 相邻区间合并
-        else list.push([s, end])
-        missingByPlane.set(plane, list)
-        s = end + 1
-      }
-    }
-  }
-
-  return {
-    label,
-    sublabel,
-    summary: {
-      total: subOf('total'),
-      unified: subOf('unified'),
-      compat: subOf('compat'),
-      scattered: subOf('scattered'),
-    },
-    blocksByName,
-    missingByPlane,
-  }
 }
 
 /** 字体栈条目（悬停卡片逐字体行） */
 export interface StackEntry {
   label: string
   blocksByName: Map<string, BlockCov>
+}
+
+/** 统计芯片数据（View 仅渲染，不组文案） */
+export interface StatChip {
+  value: string
+  /** 次要数字（如 “/ 102,999”） */
+  of?: string
+  label: string
+}
+
+export function subtotalOf(list: { assigned: number; covered: number }[]): Subtotal {
+  const assigned = list.reduce((n, b) => n + b.assigned, 0)
+  const covered = list.reduce((n, b) => n + b.covered, 0)
+  return { covered, assigned, coverage: assigned === 0 ? 0 : +(covered / assigned).toFixed(6) }
+}
+
+/** 缺失区间按平面分桶并合并相邻段（跨平面切开仅作稳健性兜底） */
+export function bucketByPlane(missing: [number, number][]): Map<number, [number, number][]> {
+  const byPlane = new Map<number, [number, number][]>()
+  for (const [lo, hi] of missing) {
+    let s = lo
+    while (s <= hi) {
+      const plane = Math.floor(s / PLANE_SIZE)
+      const end = Math.min(hi, (plane + 1) * PLANE_SIZE - 1)
+      const list = byPlane.get(plane) ?? []
+      const prev = list[list.length - 1]
+      if (prev && prev[1] === s - 1) prev[1] = end
+      else list.push([s, end])
+      byPlane.set(plane, list)
+      s = end + 1
+    }
+  }
+  return byPlane
+}
+
+const hexOf = (v: string): number => Number.parseInt(v, 16)
+
+/** 报告 JSON → ViewModel（唯一组装入口；category/顺序以 hanTable 为单一事实源） */
+export function assembleViewModel(report: CoverageReportFile): CoverageModel {
+  const blocksByName = new Map<string, BlockCov>()
+  const missingByPlane = bucketByPlane(
+    [...report.blocks, ...report.scatteredBlocks].flatMap((b) =>
+      b.missingRanges.map(([s, e]) => [hexOf(s), hexOf(e)] as [number, number]),
+    ),
+  )
+
+  const mainVals: { assigned: number; covered: number }[] = []
+  const unifiedVals: { assigned: number; covered: number }[] = []
+  const compatVals: { assigned: number; covered: number }[] = []
+  const scatteredVals: { assigned: number; covered: number }[] = []
+
+  for (const b of [...report.blocks, ...report.scatteredBlocks]) {
+    blocksByName.set(b.name, {
+      covered: b.covered,
+      assigned: b.assigned,
+      coverage: b.coverage,
+      missingCount: b.missingCount,
+      missingRanges: b.missingRanges.map(([s, e]) => [hexOf(s), hexOf(e)]),
+    })
+  }
+  // 小计按 hanTable 分类重算（报告 summary 仅作展示冗余）
+  for (const hb of HAN_BLOCKS) {
+    const b = blocksByName.get(hb.name)
+    if (!b) continue
+    if (hb.category === 'unified') {
+      unifiedVals.push(b)
+      mainVals.push(b)
+    } else if (hb.category === 'compat') {
+      compatVals.push(b)
+      mainVals.push(b)
+    } else scatteredVals.push(b)
+  }
+
+  const f = report.font
+  const label = [f.family, f.subfamily].filter(Boolean).join(' ') || f.postscriptName || '未知字体'
+  const subParts = [
+    f.postscriptName,
+    f.format,
+    f.charSetSize > 0 ? `cmap ${f.charSetSize.toLocaleString()} 条` : null,
+    f.fontNumber !== null ? `ttc#${f.fontNumber}` : null,
+  ].filter(Boolean)
+
+  return {
+    label,
+    sublabel: subParts.join(' · '),
+    summary: {
+      total: subtotalOf(mainVals),
+      unified: subtotalOf(unifiedVals),
+      compat: subtotalOf(compatVals),
+      scattered: subtotalOf(scatteredVals),
+    },
+    blocksByName,
+    missingByPlane,
+  }
+}
+
+/** 统计芯片数据（合计 + 三档小计），View 直接 map 渲染 */
+export function statChips(m: CoverageModel | null): StatChip[] {
+  if (!m) return []
+  const pct = (s: Subtotal) => `${(s.coverage * 100).toFixed(1)}%`
+  return [
+    {
+      value: m.summary.total.covered.toLocaleString(),
+      of: `/ ${m.summary.total.assigned.toLocaleString()}`,
+      label: `13 区块覆盖 · ${pct(m.summary.total)}`,
+    },
+    { value: pct(m.summary.unified), label: '统一表意（11 区块）' },
+    { value: pct(m.summary.compat), label: '兼容表意（2 区块）' },
+    { value: pct(m.summary.scattered), label: '散居 Han（部首/符号）' },
+  ]
 }
 
 /** 悬停卡片 meta 行：单字体时输出覆盖/缺失两行；

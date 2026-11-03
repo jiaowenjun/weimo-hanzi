@@ -1,7 +1,8 @@
 // 浏览器端字体加载：fontkit 动态 import（独立 chunk，选字体文件时才加载）
-// 支持 ttf/otf/ttc/woff/woff2；ttc 逐成员解析，返回每个成员的字符集与元信息
-import { computeCoverage, type FontMemberInfo } from './compute'
-import type { CoverageModel } from './coverage'
+// 支持 ttf/otf/ttc/woff/woff2；ttc 逐成员解析，返回每个成员的覆盖度报告
+// （CoverageReportFile JSON 数据模型，与 CLI 输出同构）
+import { computeReport } from './compute'
+import type { CoverageReportFile } from './report'
 
 /** 魔数嗅探字体容器格式（与 CLI font-coverage.mjs 同款判定） */
 function sniffFormat(b: ArrayBuffer): string {
@@ -29,12 +30,12 @@ interface FontkitModule {
   create(bytes: Uint8Array): FontLike | { fonts: FontLike[] }
 }
 
-/** 解析字体文件 → 每个成员（ttc 可多成员）的 CoverageModel。
+/** 解析字体文件 → 每个成员（ttc 可多成员）的覆盖度报告。
  *  数据量大（cmap 上万条 + 全量 Han 区间扫描），用微任务分片让出主线程，避免卡住 UI */
-export async function loadFontCoverage(
+export async function loadFontReports(
   buffer: ArrayBuffer,
   onProgress?: (msg: string) => void,
-): Promise<CoverageModel[]> {
+): Promise<CoverageReportFile[]> {
   onProgress?.('加载解析引擎…')
   const fontkit = (await import('fontkit')) as unknown as FontkitModule
   const format = sniffFormat(buffer)
@@ -42,7 +43,7 @@ export async function loadFontCoverage(
   onProgress?.(`解析字体（${format}）…`)
   const opened = fontkit.create(new Uint8Array(buffer))
   const members = 'fonts' in opened ? opened.fonts : [opened]
-  const models: CoverageModel[] = []
+  const reports: CoverageReportFile[] = []
   for (let i = 0; i < members.length; i++) {
     const font = members[i]
     onProgress?.(
@@ -50,19 +51,15 @@ export async function loadFontCoverage(
     )
     await new Promise((r) => setTimeout(r, 0)) // 让出主线程，进度文案有机会渲染
     const charset = new Set(font.characterSet)
-    const family = font.familyName ?? null
-    const subfamily = font.subfamilyName ?? null
-    const psName = font.postscriptName ?? null
-    const info: FontMemberInfo = {
-      label: [family, subfamily].filter(Boolean).join(' ') || psName || '未知字体',
-      sublabel: [psName, format, `cmap ${charset.size.toLocaleString()} 条`]
-        .filter(Boolean)
-        .join(' · '),
-      family,
-      subfamily,
-      format,
-    }
-    models.push(computeCoverage(charset, info))
+    reports.push(
+      computeReport(charset, {
+        family: font.familyName ?? null,
+        subfamily: font.subfamilyName ?? null,
+        postscriptName: font.postscriptName ?? null,
+        format,
+        fontNumber: members.length > 1 ? i : null,
+      }),
+    )
   }
-  return models
+  return reports
 }

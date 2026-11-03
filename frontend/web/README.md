@@ -35,7 +35,7 @@ pnpm coverage 字体A --out <目录> --no-json --reference <han-assigned.json>
 
 ### 覆盖热力图演示页（`/coverage.html`）
 
-独立多页入口（不依赖主页面）。**直接在页面上选择字体文件**（ttf/otf/ttc/woff/woff2，可多选），浏览器内用 fontkit 实时计算汉字覆盖度并渲染到码空间全景与区块详图——暗罩/斜纹 = 缺失码位，保持原色 = 已覆盖，悬停可查看区块级覆盖率。多选多款字体时按**字体栈语义取并集**：默认显示「合计」总体覆盖，队列中可切换/移除单字体查看各自覆盖，悬停卡片同时列出每款字体的覆盖率与合计。也可载入 CLI 生成的 `.coverage.json`。本地计算，不上传任何数据：
+独立多页入口（不依赖主页面）。**直接在页面上选择字体文件**（ttf/otf/ttc/woff/woff2，可多选），浏览器内用 fontkit 实时计算汉字覆盖度并渲染到码空间全景与区块详图——暗罩/斜纹 = 缺失码位，保持原色 = 已覆盖，悬停可查看区块级覆盖率。多选多款字体时按**字体栈语义取并集**：默认显示「合计」总体覆盖，队列中可切换/移除单字体查看各自覆盖，悬停卡片同时列出每款字体的覆盖率与合计。计算结果（含并集）可经「⬇ JSON」导出为 `.coverage.json` 数据模型文件，与 CLI 产物同构、可再次载入复现。也可载入 CLI 生成的 `.coverage.json`。本地计算，不上传任何数据。架构遵循 Model-View 分层：报告 JSON 是唯一数据模型（`src/coverage/lib/report.ts`），`lib/coverage.ts` 组装 ViewModel 驱动全景/详图/统计芯片等全部视图：
 
 ```sh
 pnpm dev   # 打开 http://localhost:5173/coverage.html 选择字体文件即可
