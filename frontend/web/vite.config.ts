@@ -10,10 +10,11 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
-      // 多页入口：主全景页 + 字体覆盖热力图演示页（dev server 天然服务 /coverage.html）
+      // 多页入口：主全景页 + 覆盖热力图 + 文本缺字检测（dev server 天然服务各 .html）
       input: {
         main: 'index.html',
         coverage: 'coverage.html',
+        check: 'check.html',
       },
     },
   },

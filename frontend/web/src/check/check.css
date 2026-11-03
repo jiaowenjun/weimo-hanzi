@@ -1,0 +1,122 @@
+/* 文本缺字检测页专属样式（/check.html）；骨架/芯片/载入条复用 App.css + coverage.css */
+
+.tc-input {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.8;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.tc-input:focus {
+  outline: none;
+  border-color: #ff9738;
+}
+
+.tc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tc-btn {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text-dim);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.tc-btn:hover {
+  border-color: #ff5a52;
+  color: #ffb4ae;
+}
+
+.tc-empty {
+  color: var(--text-faint);
+  font-size: 14px;
+  padding: 28px 0;
+}
+
+.stat.tc-ok b {
+  color: #2dd4bf;
+}
+
+.tc-ok-line {
+  color: #2dd4bf;
+  font-size: 14px;
+  margin: 14px 0 0;
+}
+
+.tc-miss-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.tc-table {
+  border-collapse: collapse;
+  font-size: 14px;
+  max-height: 420px;
+  display: block;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.tc-table th,
+.tc-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 16px;
+  text-align: left;
+}
+
+.tc-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-soft);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.tc-table .tc-char {
+  font-size: 20px;
+  color: var(--text);
+}
+
+.tc-table .tc-cp {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tc-more {
+  color: var(--text-faint);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.tc-chars {
+  font-size: 22px;
+  line-height: 2;
+  letter-spacing: 2px;
+  word-break: break-all;
+  background: #0b0e14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+}

@@ -393,6 +393,131 @@
   background: #0e1219;
 }
 
+/* —— 预设字符集口径卡片（CovCharsets，P2）—— */
+.cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cs-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px 16px;
+}
+
+.cs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+
+.cs-head b {
+  font-size: 14px;
+  color: #f2f5fa;
+}
+
+.cs-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.cs-bar {
+  flex: 1;
+  min-width: 140px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(11, 14, 20, 0.82);
+  overflow: hidden;
+  align-self: center;
+}
+
+.cs-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ff5a52, #ff9738);
+}
+
+.cs-pct {
+  font-weight: 700;
+  color: #ff9738;
+  white-space: nowrap;
+}
+
+.cs-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.cs-toggle {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.cs-toggle:hover {
+  border-color: #ff5a52;
+  color: #ffb4ae;
+}
+
+.cs-full {
+  color: #2dd4bf;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cs-body {
+  margin-top: 12px;
+}
+
+.cs-chars {
+  font-size: 20px;
+  line-height: 1.9;
+  letter-spacing: 2px;
+  word-break: break-all;
+  color: var(--text);
+  background: #0b0e14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.cs-more {
+  font-size: 13px;
+  color: var(--text-faint);
+  letter-spacing: normal;
+}
+
+.cs-advice {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #2dd4bf;
+}
+
+.cs-advice span + span::before {
+  content: '·';
+  margin: 0 6px;
+}
+
+.cs-advice a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 640px) {
   .cov-bar {
     gap: 8px;

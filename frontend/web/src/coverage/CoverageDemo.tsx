@@ -9,6 +9,7 @@ import { CATEGORIES, CATEGORY_ORDER, PLANES, UNICODE_VERSION_LABEL, getPlane } f
 import CovPanorama from './CovPanorama'
 import CovDetail from './CovDetail'
 import CovBlockDrill from './CovBlockDrill'
+import CovCharsets from './CovCharsets'
 import {
   assembleViewModel,
   statChips,
@@ -311,10 +312,23 @@ export default function CoverageDemo() {
           </div>
         </section>
 
+        {activeModel && (
+          <section>
+            <h2>
+              ③ 预设字符集口径 <span>通规 8105 / 常用 3500 / GB2312 · 按当前视图统计</span>
+            </h2>
+            <p className="section-hint">
+              按「实际要排的字」衡量当前{views.length >= 2 ? '字体组合' : '字体'}：字表字符均为已分配 Han 码位，
+              覆盖判定与主口径一致。缺字可展开预览，并给出内置开源字体的救援建议。
+            </p>
+            <CovCharsets coverage={activeModel} />
+          </section>
+        )}
+
         {drill && activeModel && (
           <section>
             <h2>
-              ③ 区块下钻 · {drillBlockZh} <span>1 格 = 1 码位 · 每行 0x100 · 亮 = 覆盖 · 暗纹 = 缺失</span>
+              ④ 区块下钻 · {drillBlockZh} <span>1 格 = 1 码位 · 每行 0x100 · 亮 = 覆盖 · 暗纹 = 缺失</span>
             </h2>
             <p className="section-hint">
               {activeModel.label} 在该区块的逐字覆盖地图：亮格 = 已覆盖，暗纹格 = 缺失，
@@ -338,7 +352,7 @@ export default function CoverageDemo() {
         </p>
         <p className="sources">
           浏览器端实时计算与 CLI（pnpm coverage）共用同一参考标准 src/data/han-assigned.json ·{' '}
-          <a href="/">← 返回主全景页</a> ·{' '}
+          <a href="/">← 返回主全景页</a> · <a href="/check.html">文本缺字检测 →</a> ·{' '}
           <a
             href="https://github.com/jiaowenjun/weimo-hanzi/blob/main/docs/research/2026-11-02-unicode-han-blocks.md"
             target="_blank"
