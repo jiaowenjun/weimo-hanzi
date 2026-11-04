@@ -328,7 +328,7 @@ export default function CoverageDemo() {
         {drill && activeModel && (
           <section>
             <h2>
-              ④ 区块下钻 · {drillBlockZh} <span>1 格 = 1 码位 · 每行 0x100 · 亮 = 覆盖 · 暗纹 = 缺失</span>
+              ④ 区块下钻 · {drillBlockZh} <span>1 格 = 1 码位 · 亮 = 覆盖 · 暗纹 = 缺失 · 深缝 = 未分配</span>
             </h2>
             <p className="section-hint">
               {activeModel.label} 在该区块的逐字覆盖地图：亮格 = 已覆盖，暗纹格 = 缺失，

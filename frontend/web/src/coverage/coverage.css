@@ -227,18 +227,31 @@
 }
 
 /* —— 详图刻度轴与格线（CovDetail）——
-   grid-frame：左/上各留一条 0–F 十六进制刻度，平面网格占据 (2,2) 格；
+   grid-frame：左/上各留一条 0–F 十六进制刻度，平面网格占据 (2,2) 格，
+   底部码位轴占第 3 行 (3,2)——落在网格正下方而非 plane-body 全宽下，
+   两端码位才与网格左右边框对齐（否则会被 tray 列撑出 162px 错位）；
    刻度与 .grid-lines 同为 1/16 步长，对应「每格 0x100」 */
 .grid-frame {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
-  grid-template-rows: 16px auto;
+  grid-template-rows: 16px auto auto;
 }
 
 /* 网格必须显式落在 (2,2)：刻度轴已显式占据 (1,2)/(2,1)，
    自动放置会把 plane-grid-wrap 排进左上角 18×16 的空格，整个详图随之塌陷 */
 .grid-frame > .plane-grid-wrap {
   grid-area: 2 / 2;
+}
+
+/* 底部码位轴显式落在 (3,2)：宽度即网格宽度，U+XXXX 两端对齐网格边框 */
+.grid-frame > .plane-axis {
+  grid-area: 3 / 2;
+}
+
+/* 详图网格边框提亮（仅本页）：--border #232b3a 与 PUA 分类色 #232a38 同色，
+   平面 0 底行的整片 PUA 铺底会让底边框视觉上「断掉」；提亮到可分辨色 */
+.grid-frame .plane-grid {
+  border-color: #45536e;
 }
 
 .axis {
@@ -391,6 +404,11 @@
   image-rendering: pixelated;
   cursor: crosshair;
   background: #0e1219;
+}
+
+/* 格内显示字符的小区块：以高分辨率绘制后整体缩小，关闭像素化避免文字锯齿 */
+.drill canvas.with-text {
+  image-rendering: auto;
 }
 
 /* —— 预设字符集口径卡片（CovCharsets，P2）—— */

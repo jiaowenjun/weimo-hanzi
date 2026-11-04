@@ -222,6 +222,13 @@ export default function CovDetail({ plane, coverage, stack, unionCov, onSelectBl
               )),
             )}
           </div>
+          {/* 底部码位轴：作为 grid-frame 第 3 行落在网格正下方，
+              两端码位与网格左右边框对齐（放在 plane-body 下会被 tray 列撑宽而错位） */}
+          <div className="plane-axis">
+            <span>{hex(base)}</span>
+            <span className="axis-hint">每列 0x100 · 每行 0x1000</span>
+            <span>{hex(base + 0xffff)}</span>
+          </div>
         </div>
         <aside className="tray">
           {pm.curated.map((b) => {
@@ -254,11 +261,6 @@ export default function CovDetail({ plane, coverage, stack, unionCov, onSelectBl
             )
           })}
         </aside>
-      </div>
-      <div className="plane-axis">
-        <span>{hex(base)}</span>
-        <span className="axis-hint">每列 0x100 · 每行 0x1000</span>
-        <span>{hex(base + 0xffff)}</span>
       </div>
     </div>
   )

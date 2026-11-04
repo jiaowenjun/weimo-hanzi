@@ -10,9 +10,26 @@ import { HAN_BLOCKS } from './lib/hanTable'
 import type { CoverageModel } from './lib/coverage'
 import { hatchPattern } from './hatch'
 
-const COLS = 256 // 每行码位数 = 0x100，与详图「每格 0x100」同一进制语义
 const CELL = 12 // 内部绘制格边长（px）；CSS 整体缩放到容器宽
 const GAP = 1 // 格间缝：让逐字粒度在缩放后仍可辨
+
+/** 列数 ≤ 此值的区块在单元格内直接绘制字符（格子已足够大）；
+ *  大区块（如基本区 256 列）格子仅数像素，维持色块 + 悬停卡片 */
+const TEXT_COLS_MAX = 64
+/** 文字模式的内部格边长（px）：提高内部分辨率，CSS 缩小时字仍清晰 */
+const TEXT_CELL = 48
+
+/** 画布高/宽比下限：小区块若固定 256 列会被压成一条 ~4px 的线，
+ *  无法辨认也无法悬停；按此宽高比收缩列数保证最小可视高度 */
+const MIN_ASPECT = 0.07
+
+/** 列数自适应：从 256 逐级减半（16 封底），保持 2 的幂 —— 每行码位数
+ *  始终为 0xN（十六进制对齐）；大区块（URO/ExtA 等）不受影响仍为 256 */
+function drillCols(span: number): number {
+  let cols = 256
+  while (cols > 16 && Math.ceil(span / cols) / cols < MIN_ASPECT) cols /= 2
+  return cols
+}
 
 const hex = (cp: number) => cp.toString(16).toUpperCase().padStart(4, '0')
 
@@ -41,6 +58,9 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
   const hb = HAN_BLOCKS.find((b) => b.name === name)
   const cov = coverage?.blocksByName.get(name) ?? null
   const cat = hb ? ((CATEGORIES as Record<string, { color: string; label: string }>)[hb.category] ?? CATEGORIES.other) : CATEGORIES.other
+  const span = hb ? hb.end - hb.start + 1 : 0
+  const cols = drillCols(span)
+  const showText = cols <= TEXT_COLS_MAX
 
   // 打开/切换区块时滚到可见处
   useEffect(() => {
@@ -51,10 +71,10 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
     const cv = cvRef.current
     const ctx = cv?.getContext('2d')
     if (!cv || !ctx || !hb) return
-    const span = hb.end - hb.start + 1
-    const rows = Math.ceil(span / COLS)
-    cv.width = COLS * CELL
-    cv.height = rows * CELL
+    const cell = showText ? TEXT_CELL : CELL
+    const rows = Math.ceil(span / cols)
+    cv.width = cols * cell
+    cv.height = rows * cell
     // 底色 = 未分配「深缝」
     ctx.fillStyle = '#141a26'
     ctx.fillRect(0, 0, cv.width, cv.height)
@@ -63,7 +83,7 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
     for (const [s, e] of hb.ranges) {
       for (let cp = s; cp <= e; cp++) {
         const idx = cp - hb.start
-        ctx.fillRect((idx % COLS) * CELL, Math.floor(idx / COLS) * CELL, CELL - GAP, CELL - GAP)
+        ctx.fillRect((idx % cols) * cell, Math.floor(idx / cols) * cell, cell - GAP, cell - GAP)
       }
     }
     // 缺失：暗罩 + 45° 斜纹（与全景/详图共用 hatchPattern）
@@ -73,13 +93,33 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
       for (let cp = s; cp <= e; cp++) {
         if (cp < hb.start || cp > hb.end) continue
         const idx = cp - hb.start
-        const x = (idx % COLS) * CELL
-        const y = Math.floor(idx / COLS) * CELL
+        const x = (idx % cols) * cell
+        const y = Math.floor(idx / cols) * cell
         ctx.fillStyle = 'rgba(11, 14, 20, 0.85)'
-        ctx.fillRect(x, y, CELL - GAP, CELL - GAP)
+        ctx.fillRect(x, y, cell - GAP, cell - GAP)
         if (hatch) {
           ctx.fillStyle = hatch
-          ctx.fillRect(x, y, CELL - GAP, CELL - GAP)
+          ctx.fillRect(x, y, cell - GAP, cell - GAP)
+        }
+      }
+    }
+    // 格内字符：覆盖格白字、缺失格半暗字（画在斜纹之上保持可读）；
+    // 未分配码位无字可画，保留深缝。生僻字系统字体缺字形时显示豆腐块，属预期
+    if (showText) {
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `${Math.round(cell * 0.48)}px ${getComputedStyle(document.body).fontFamily}`
+      let mi = 0
+      for (const [s, e] of hb.ranges) {
+        for (let cp = s; cp <= e; cp++) {
+          const idx = cp - hb.start
+          const x = (idx % cols) * cell
+          const y = Math.floor(idx / cols) * cell
+          while (mi < miss.length && miss[mi][1] < cp) mi++
+          const m = miss[mi]
+          const missed = !!m && cp >= m[0] && cp <= m[1]
+          ctx.fillStyle = missed ? 'rgba(227, 231, 240, 0.5)' : 'rgba(255, 255, 255, 0.95)'
+          ctx.fillText(String.fromCodePoint(cp), x + cell / 2, y + cell / 2 + 1)
         }
       }
     }
@@ -87,31 +127,31 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
     ctx.strokeStyle = 'rgba(227, 231, 240, 0.07)'
     ctx.lineWidth = 1
     ctx.beginPath()
-    for (let i = 1; i < COLS / 16; i++) {
-      const p = i * 16 * CELL + 0.5
+    for (let i = 1; i < cols / 16; i++) {
+      const p = i * 16 * cell + 0.5
       ctx.moveTo(p, 0)
       ctx.lineTo(p, cv.height)
     }
     for (let j = 1; j < rows / 16; j++) {
-      const p = j * 16 * CELL + 0.5
+      const p = j * 16 * cell + 0.5
       ctx.moveTo(0, p)
       ctx.lineTo(cv.width, p)
     }
     ctx.stroke()
-  }, [name, hb, cov, cat.color])
+  }, [name, hb, cov, cat.color, span, cols, showText])
 
   if (!hb) return null
 
-  const rows = Math.ceil((hb.end - hb.start + 1) / COLS)
+  const rows = Math.ceil(span / cols)
   const miss = cov?.missingRanges ?? []
 
   const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const cv = e.currentTarget
     const rect = cv.getBoundingClientRect()
-    const col = Math.floor(((e.clientX - rect.left) / rect.width) * COLS)
+    const col = Math.floor(((e.clientX - rect.left) / rect.width) * cols)
     const row = Math.floor(((e.clientY - rect.top) / rect.height) * rows)
-    const cp = hb.start + row * COLS + col
-    if (col < 0 || col >= COLS || row < 0 || cp > hb.end) {
+    const cp = hb.start + row * cols + col
+    if (col < 0 || col >= cols || row < 0 || cp > hb.end) {
       onTip(null)
       return
     }
@@ -135,7 +175,8 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
       <div className="drill-head">
         <b>{hb.zh}</b>
         <span className="rg">
-          {hb.name} · {hex(hb.start)}–{hex(hb.end)}
+          {hb.name} · {hex(hb.start)}–{hex(hb.end)} · 每行 0x{cols.toString(16).toUpperCase()}
+          {showText ? ' · 格内显示字符' : ''}
         </span>
         {cov && (
           <>
@@ -154,10 +195,11 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
       </div>
       <canvas
         ref={cvRef}
-    onMouseMove={onMove}
-    onMouseLeave={() => onTip(null)}
-    aria-label={`${hb.zh}逐字覆盖地图`}
-  />
+        className={showText ? 'with-text' : undefined}
+        onMouseMove={onMove}
+        onMouseLeave={() => onTip(null)}
+        aria-label={`${hb.zh}逐字覆盖地图`}
+      />
     </div>
   )
 }
