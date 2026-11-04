@@ -1,8 +1,8 @@
 // 区块下钻（P1）：把一个汉字区块摊开成「1 格 = 1 码位」的逐字地图 ——
 // 亮格 = 已覆盖（分类色提亮）、暗纹格 = 缺失（暗罩 + 斜纹，与全景/详图同语言）、
 // 深缝 = 未分配码位（Scripts.txt 口径不计入分母，可视化「分母只数已分配」）。
-// 数据全部来自现有 Model（hanTable 区间真值 + CoverageModel.missingRanges），
-// 本组件纯 View；每行 256 格 = 0x100，与全景/详图的自相似尺度一致
+// 数据全部来自现有 Model（hanTable 区块区间真值 + CoverageModel.missingRanges），
+// 本组件纯 View；每行格数为 2 的幂（0xN 对齐），小区块/文字模式自动收拢列数
 import { useEffect, useRef } from 'react'
 import { CATEGORIES } from '../lib/model'
 import type { TipData } from '../components/DetailCard'
@@ -13,9 +13,12 @@ import { hatchPattern } from './hatch'
 const CELL = 12 // 内部绘制格边长（px）；CSS 整体缩放到容器宽
 const GAP = 1 // 格间缝：让逐字粒度在缩放后仍可辨
 
-/** 列数 ≤ 此值的区块在单元格内直接绘制字符（格子已足够大）；
- *  大区块（如基本区 256 列）格子仅数像素，维持色块 + 悬停卡片 */
+/** 文字模式列数封顶：格子宽 ≈ 容器宽/64（约 18px），格内字符仍可辨认；
+ *  中量级区块（扩展A 等）由此从 256 列收拢到 64 列换得格内字符 */
 const TEXT_COLS_MAX = 64
+/** 文字模式的跨度上限：≤ 0x2000（如扩展A 6592）的区块启用格内字符；
+ *  基本区/扩展B 等 2 万+ 级区块即使 64 列也有 300+ 行，维持色块 + 悬停卡片 */
+const TEXT_SPAN_MAX = 0x2000
 /** 文字模式的内部格边长（px）：提高内部分辨率，CSS 缩小时字仍清晰 */
 const TEXT_CELL = 48
 
@@ -24,11 +27,12 @@ const TEXT_CELL = 48
 const MIN_ASPECT = 0.07
 
 /** 列数自适应：从 256 逐级减半（16 封底），保持 2 的幂 —— 每行码位数
- *  始终为 0xN（十六进制对齐）；大区块（URO/ExtA 等）不受影响仍为 256 */
-function drillCols(span: number): number {
+ *  始终为 0xN（十六进制对齐）；文字模式再封顶到 TEXT_COLS_MAX，
+ *  让中量级区块（扩展A/G/H/J 等）的格子放大到可容纳字符 */
+function drillCols(span: number, showText: boolean): number {
   let cols = 256
   while (cols > 16 && Math.ceil(span / cols) / cols < MIN_ASPECT) cols /= 2
-  return cols
+  return showText ? Math.min(cols, TEXT_COLS_MAX) : cols
 }
 
 const hex = (cp: number) => cp.toString(16).toUpperCase().padStart(4, '0')
@@ -59,8 +63,8 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
   const cov = coverage?.blocksByName.get(name) ?? null
   const cat = hb ? ((CATEGORIES as Record<string, { color: string; label: string }>)[hb.category] ?? CATEGORIES.other) : CATEGORIES.other
   const span = hb ? hb.end - hb.start + 1 : 0
-  const cols = drillCols(span)
-  const showText = cols <= TEXT_COLS_MAX
+  const showText = span <= TEXT_SPAN_MAX
+  const cols = drillCols(span, showText)
 
   // 打开/切换区块时滚到可见处
   useEffect(() => {
@@ -108,7 +112,7 @@ export default function CovBlockDrill({ name, coverage, onClose, showTip, onTip 
     if (showText) {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.font = `${Math.round(cell * 0.48)}px ${getComputedStyle(document.body).fontFamily}`
+      ctx.font = `${Math.round(cell * 0.6)}px ${getComputedStyle(document.body).fontFamily}`
       let mi = 0
       for (const [s, e] of hb.ranges) {
         for (let cp = s; cp <= e; cp++) {
